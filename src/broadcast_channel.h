@@ -2,6 +2,7 @@
 #define __BROADCAST_CHANNEL_H
 
 #include <stddef.h>
+#include <string>
 
 class broadcast_channel {
     public:
@@ -9,6 +10,9 @@ class broadcast_channel {
 
         //Default destructor
         virtual ~broadcast_channel(void);
+
+        //Connect to an existing broadcast group
+        virtual void connect(std::string& ip_port) = 0;
 
         //Broadcast a message over this channel
         virtual void send(unsigned char *buf, size_t buf_len) = 0;

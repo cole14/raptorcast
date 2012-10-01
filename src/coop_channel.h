@@ -11,6 +11,9 @@ class coop_channel : public broadcast_channel {
         //default destructor
         virtual ~coop_channel(void);
 
+        //Connect to an existing broadcast group
+        void connect(std::string& ip_port);
+
         //Broadcast a message over this channel
         //This is performed by sequentially sending F/N of the file
         //to each client, who in turn rebroadcast it over a tcp connection.

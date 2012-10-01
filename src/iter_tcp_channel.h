@@ -11,6 +11,9 @@ class iter_tcp_channel : public broadcast_channel {
         //default destructor
         virtual ~iter_tcp_channel(void);
 
+        //Connect to an existing broadcast group
+        void connect(std::string& ip_port);
+
         //Broadcast a message over this channel
         //This is performed by sequentially sending the entire contents of the file
         //to each client over a tcp connection.

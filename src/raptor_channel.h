@@ -11,6 +11,9 @@ class raptor_channel : public broadcast_channel {
         //default destructor
         virtual ~raptor_channel(void);
 
+        //Connect to an existing broadcast group
+        void connect(std::string& ip_port);
+
         //Broadcast a message over this channel
         //This is performed by sequentially sending 2F/N of the file size as raptor code chunks
         //to each client, who in turn rebroadcast them over a tcp connection.
