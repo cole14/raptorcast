@@ -6,7 +6,7 @@
 class raptor_channel : public broadcast_channel {
     public:
         //default constructor
-        raptor_channel();
+        raptor_channel(int port);
 
         //default destructor
         virtual ~raptor_channel(void);

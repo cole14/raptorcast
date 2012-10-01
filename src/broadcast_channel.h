@@ -5,7 +5,7 @@
 
 class broadcast_channel {
     public:
-        broadcast_channel();
+        broadcast_channel(int port);
 
         //Default destructor
         virtual ~broadcast_channel(void);
@@ -16,6 +16,9 @@ class broadcast_channel {
         //Receive a message which was broadcasted
         //Returns the number of bytes left unread
         virtual size_t recv(unsigned char *buf, size_t buf_len) = 0;
+
+    private:
+        int port;
 };
 
 #endif /* __BROADCAST_CHANNEL_H */

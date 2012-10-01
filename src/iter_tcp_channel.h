@@ -6,7 +6,7 @@
 class iter_tcp_channel : public broadcast_channel {
     public:
         //default constructor
-        iter_tcp_channel();
+        iter_tcp_channel(int port);
 
         //default destructor
         virtual ~iter_tcp_channel(void);

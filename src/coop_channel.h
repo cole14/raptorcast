@@ -6,7 +6,7 @@
 class coop_channel : public broadcast_channel {
     public:
         //default constructor
-        coop_channel();
+        coop_channel(int port);
 
         //default destructor
         virtual ~coop_channel(void);
