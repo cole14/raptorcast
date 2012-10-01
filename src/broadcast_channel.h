@@ -1,6 +1,8 @@
 #ifndef __BROADCAST_CHANNEL_H
 #define __BROADCAST_CHANNEL_H
 
+#include <stddef.h>
+
 class broadcast_channel {
     public:
         broadcast_channel();
