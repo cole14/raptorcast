@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <string>
+#include <vector>
 
 class broadcast_channel {
     public:
@@ -23,6 +24,7 @@ class broadcast_channel {
 
     private:
         int port;
+        std::vector< std::string > members;
 };
 
 #endif /* __BROADCAST_CHANNEL_H */
