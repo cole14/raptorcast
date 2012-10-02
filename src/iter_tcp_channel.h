@@ -2,11 +2,12 @@
 #define __ITER_TCP_CHANNEL_H
 
 #include "broadcast_channel.h"
+#include "channel_listener.h"
 
 class iter_tcp_channel : public broadcast_channel {
     public:
         //default constructor
-        iter_tcp_channel(int port);
+        iter_tcp_channel(int port, channel_listener *lstnr);
 
         //default destructor
         virtual ~iter_tcp_channel(void);
@@ -18,10 +19,6 @@ class iter_tcp_channel : public broadcast_channel {
         //This is performed by sequentially sending the entire contents of the file
         //to each client over a tcp connection.
         void send(unsigned char *buf, size_t buf_len);
-
-        //Receive a message which was broadcasted
-        //Returns the number of bytes left unread
-        size_t recv(unsigned char *buf, size_t buf_len);
 };
 
 #endif /* __ITER_TCP_CHANNEL_H */

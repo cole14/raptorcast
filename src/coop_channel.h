@@ -6,7 +6,7 @@
 class coop_channel : public broadcast_channel {
     public:
         //default constructor
-        coop_channel(int port);
+        coop_channel(int port, channel_listener *lstnr);
 
         //default destructor
         virtual ~coop_channel(void);
@@ -19,9 +19,6 @@ class coop_channel : public broadcast_channel {
         //to each client, who in turn rebroadcast it over a tcp connection.
         void send(unsigned char *buf, size_t buf_len);
 
-        //Receive a message which was broadcasted
-        //Returns the number of bytes left unread
-        size_t recv(unsigned char *buf, size_t buf_len);
 };
 
 #endif /* __COOP_CHANNEL_H */
