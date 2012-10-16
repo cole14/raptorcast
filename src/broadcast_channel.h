@@ -7,6 +7,29 @@
 
 #include "channel_listener.h"
 
+#define PACKET_LEN 256;
+
+struct client_info {
+    Std::String name;
+    Struct sockaddr_in *ip;
+    unsigned in id;
+};
+
+enum algo_t {
+    CLIENT_SERVER,
+    TRAD,
+    COOP,
+    RAPTOR
+};
+
+struct message {
+    algo_t type;
+    unsigned int cli_id;
+    unsigned long msg_id;
+    int data_len;
+    unsigned char [PACKET_LEN] data;
+};
+
 class broadcast_channel {
     public:
         broadcast_channel(int port, channel_listener *lstnr);
