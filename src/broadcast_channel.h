@@ -12,7 +12,7 @@
 struct client_info {
     Std::String name;
     Struct sockaddr_in *ip;
-    unsigned in id;
+    unsigned int id;
 };
 
 enum algo_t {
@@ -32,7 +32,8 @@ struct message {
 
 class broadcast_channel {
     public:
-        broadcast_channel(int port, channel_listener *lstnr);
+        //Constructor
+        broadcast_channel(std::string name, int port, channel_listener *lstnr);
 
         //Default destructor
         virtual ~broadcast_channel(void);
@@ -44,9 +45,18 @@ class broadcast_channel {
         virtual void send(unsigned char *buf, size_t buf_len) = 0;
 
     private:
-        int port;
+        //The client info for this broadcast_channel
+        struct client_info my_info;
+        //The client info for everyone in the broadcast group
+        std::vector< struct client_info > group_set;
+        //The list of currently-active message decoders
+        std::vector< Decoder > decoders;
+        //The chunk receiver thread
+        pthread_t receiver_thread;
+        //The application listening on this channel
         channel_listener *listener;
-        std::vector< std::string > members;
+        //The monotonically increasing unique message id counter for this sender
+        unsigned long msg_counter;
 };
 
 #endif /* __BROADCAST_CHANNEL_H */
