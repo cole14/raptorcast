@@ -38,15 +38,16 @@ broadcast_channel::broadcast_channel(std::string name, int port, channel_listene
         error(-1, h_errno, "Unable to get localhost host information");
     }
     my_info.ip = *((sockaddr_in *)local_h->ai_addr);
+    my_info.ip.sin_port = htons(port);
 
     //delete the local_h linked list
     freeaddrinfo(local_h);
 
     //for debugging purposes:
     getnameinfo((sockaddr*)&my_info.ip, sizeof(my_info.ip), local_h_name, 256, NULL, 0, NI_NOFQDN);
-    fprintf(stdout, "Successfully created broadcast channel listening on %s:%d (", local_h_name, port);
+    fprintf(stdout, "Successfully created broadcast channel listening on %s:%d (", local_h_name, ntohs(my_info.ip.sin_port));
     getnameinfo((sockaddr*)&my_info.ip, sizeof(my_info.ip), local_h_name, 256, NULL, 0, NI_NUMERICHOST);
-    fprintf(stdout, "%s:%d)\n", local_h_name, port);
+    fprintf(stdout, "%s:%d)\n", local_h_name, ntohs(my_info.ip.sin_port));
 
 }
 
