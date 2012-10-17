@@ -1,6 +1,8 @@
 #ifndef __BROADCAST_CHANNEL_H
 #define __BROADCAST_CHANNEL_H
 
+#include <netinet/ip.h>
+
 #include <stddef.h>
 #include <string>
 #include <vector>
@@ -13,7 +15,7 @@
 
 struct client_info {
     std::string name;
-    struct sockaddr_in *ip;
+    struct sockaddr_in ip;
     unsigned int id;
 };
 
@@ -41,10 +43,10 @@ class broadcast_channel {
         virtual ~broadcast_channel(void);
 
         //Connect to an existing broadcast group
-        virtual void connect(std::string& ip_port) = 0;
+        void connect(std::string& ip_port);
 
         //Broadcast a message over this channel
-        virtual void send(unsigned char *buf, size_t buf_len) = 0;
+        void send(unsigned char *buf, size_t buf_len);
 
     private:
         //The client info for this broadcast_channel
