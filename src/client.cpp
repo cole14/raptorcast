@@ -8,19 +8,18 @@
 #include <stdlib.h>
 
 #include "client.h"
-#include "iter_tcp_channel.h"
 
 void usage(){
-    fprintf(stderr, "Usage: %s <port>\n", program_invocation_short_name);
+    fprintf(stderr, "Usage: %s <name> <port>\n", program_invocation_short_name);
 }
 
 void client::receive(unsigned char *buf, size_t buf_len){
 }
 
-client::client(int port)
-:chan(NULL)
+client::client(std::string name, int port)
+:chan(NULL), name(name)
 {
-    chan = new iter_tcp_channel(port, this);
+    chan = new broadcast_channel(name, port, this);
 }
 
 client::~client(){
@@ -28,15 +27,17 @@ client::~client(){
 }
 
 int main(int argc, char *argv[]){
-    if(argc != 2){
+    if(argc != 3){
         usage();
         exit(EINVAL);
     }
 
+    //Parse the client name
+    std::string name(argv[1]);
     //Parse the port number
-    int port = (int)strtol(argv[1], NULL, 10);
+    int port = (int)strtol(argv[2], NULL, 10);
 
-    client c(port);
+    client c(name, port);
 
     return 0;
 }

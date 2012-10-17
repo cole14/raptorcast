@@ -4,11 +4,13 @@
 
 class client : public channel_listener {
     public:
-        client(int port);
+        client(std::string name, int port);
         ~client();
 
         void receive(unsigned char *buf, size_t buf_len);
+
     private:
         broadcast_channel *chan;
+        std::string name;
 };
 

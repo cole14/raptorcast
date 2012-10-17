@@ -6,12 +6,14 @@
 #include <vector>
 
 #include "channel_listener.h"
+#include "decoder.h"
+#include "encoder.h"
 
-#define PACKET_LEN 256;
+#define PACKET_LEN 256
 
 struct client_info {
-    Std::String name;
-    Struct sockaddr_in *ip;
+    std::string name;
+    struct sockaddr_in *ip;
     unsigned int id;
 };
 
@@ -27,7 +29,7 @@ struct message {
     unsigned int cli_id;
     unsigned long msg_id;
     int data_len;
-    unsigned char [PACKET_LEN] data;
+    unsigned char data[PACKET_LEN];
 };
 
 class broadcast_channel {

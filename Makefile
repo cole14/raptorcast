@@ -10,7 +10,7 @@ CFLAGS=-g -Wall -Werror
 LDFLAGS=
 
 #List of source files 
-SRC_FILES=client.cpp broadcast_channel.cpp iter_tcp_channel.cpp channel_listener.cpp
+SRC_FILES=client.cpp broadcast_channel.cpp channel_listener.cpp
 #List of generated object files
 OBJS = $(patsubst %.cpp, $(BINDIR)/%.o, $(SRC_FILES))
 #Client executable
