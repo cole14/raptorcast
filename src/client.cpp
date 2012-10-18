@@ -13,9 +13,6 @@ void usage(){
     fprintf(stderr, "Usage: %s <name> <port>\n", program_invocation_short_name);
 }
 
-void client::receive(unsigned char *buf, size_t buf_len){
-}
-
 client::client(std::string name, int port)
 :chan(NULL), name(name)
 {
@@ -24,6 +21,12 @@ client::client(std::string name, int port)
 
 client::~client(){
     delete chan;
+}
+
+void client::receive(unsigned char *buf, size_t buf_len){
+}
+
+void client::run_cli(){
 }
 
 int main(int argc, char *argv[]){
@@ -37,7 +40,11 @@ int main(int argc, char *argv[]){
     //Parse the port number
     int port = (int)strtol(argv[2], NULL, 10);
 
+    //Initialize the client
     client c(name, port);
+
+    //Run the client
+    c.run_cli();
 
     return 0;
 }

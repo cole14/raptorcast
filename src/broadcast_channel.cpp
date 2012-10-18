@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/ip.h>
+#include <stdio.h>
 
 #include "broadcast_channel.h"
 
@@ -51,7 +52,7 @@ broadcast_channel::broadcast_channel(std::string name, int port, channel_listene
 
 }
 
-void broadcast_channel::connect(std::string& ip_port){
+void broadcast_channel::connect(std::string hostname, int port){
 }
 
 void broadcast_channel::send(unsigned char *buf, size_t buf_len){
