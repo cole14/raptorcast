@@ -12,20 +12,32 @@
 
 #include <iostream>
 
-void usage(){
+/*
+ * Prints the usage statement.
+ */
+static void usage(void){
     fprintf(stderr, "Usage: %s <name> <port>\n", program_invocation_short_name);
 }
 
+/* 
+ * Constructor. Initializes the broadcast_channel with this client's self-identifying information.
+ */
 client::client(std::string name, int port)
 :chan(NULL), name(name)
 {
     chan = new broadcast_channel(name, port, this);
 }
 
+/*
+ * Destructor. Destroys the broadcast_channel.
+ */
 client::~client(){
     delete chan;
 }
 
+/*
+ * This function is called when the broadcast_channel receives a message.
+ */
 void client::receive(unsigned char *buf, size_t buf_len){
     if(buf == NULL) return;
 
@@ -36,6 +48,9 @@ void client::receive(unsigned char *buf, size_t buf_len){
     fprintf(stdout, "\n");
 }
 
+/*
+ * Reads a hostname from stdin. Trims off the trailing newline.
+ */
 static std::string read_hostname(void){
     size_t n = BUFSIZ;
     char lne[n];
@@ -54,6 +69,9 @@ static std::string read_hostname(void){
     return std::string(lne);
 }
 
+/*
+ * Reads a port from stdin. Checks to make sure it's in the valid range for a port.
+ */
 static int read_port(void){
     long port = 0;
     size_t n = 128;
@@ -76,6 +94,11 @@ static int read_port(void){
     return port;
 }
 
+/*
+ * Runs the command-line interface for the client. This asks the user for
+ * the hostname and port of the bootstrap node to connect to, and then
+ * queries the user for various commands.
+ */
 void client::run_cli(){
     int port = 0;
 
