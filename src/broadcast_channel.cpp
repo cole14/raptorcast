@@ -46,13 +46,14 @@ broadcast_channel::broadcast_channel(std::string name, int port, channel_listene
 
     //for debugging purposes:
     getnameinfo((sockaddr*)&my_info.ip, sizeof(my_info.ip), local_h_name, 256, NULL, 0, NI_NOFQDN);
-    fprintf(stdout, "Successfully created broadcast channel listening on %s:%d (", local_h_name, ntohs(my_info.ip.sin_port));
+    fprintf(stdout, "Successfully initialized broadcast channel associated on %s:%d (", local_h_name, ntohs(my_info.ip.sin_port));
     getnameinfo((sockaddr*)&my_info.ip, sizeof(my_info.ip), local_h_name, 256, NULL, 0, NI_NUMERICHOST);
     fprintf(stdout, "%s:%d)\n", local_h_name, ntohs(my_info.ip.sin_port));
 
 }
 
-void broadcast_channel::connect(std::string hostname, int port){
+bool broadcast_channel::connect(std::string hostname, int port){
+    return false;
 }
 
 void broadcast_channel::send(unsigned char *buf, size_t buf_len){

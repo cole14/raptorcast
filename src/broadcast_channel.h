@@ -43,7 +43,7 @@ class broadcast_channel {
         virtual ~broadcast_channel(void);
 
         //Connect to an existing broadcast group
-        void connect(std::string hostname, int port);
+        bool connect(std::string hostname, int port);
 
         //Broadcast a message over this channel
         void send(unsigned char *buf, size_t buf_len);
