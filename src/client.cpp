@@ -111,7 +111,7 @@ void client::run_cli(){
 
     //Connect to the broadcast group through the bootstrap node
     if(!chan->connect(bootstrap_host, port)){
-        error(-1, 0, "Unable to connect to bootstrap node!");
+        error(-1, 0, "Unable to connect to bootstrap node (%s:%d)!", bootstrap_host.c_str(), port);
     }
 
     fprintf(stdout, "Successfully connected!\n");
