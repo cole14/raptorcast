@@ -5,8 +5,10 @@
 
 #include <error.h>
 #include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "client.h"
 
@@ -19,7 +21,7 @@ static void usage(void){
     fprintf(stderr, "Usage: %s <name> <port>\n", program_invocation_short_name);
 }
 
-/* 
+/*
  * Constructor. Initializes the broadcast_channel with this client's self-identifying information.
  */
 client::client(std::string name, int port)
