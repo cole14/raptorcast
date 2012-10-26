@@ -58,55 +58,158 @@ broadcast_channel::broadcast_channel(std::string name, int port, channel_listene
 
 }
 
+/*
+ * Request the group set from a known host (the "strap")
+ * Sends a JOIN message to hostname:port, containing information about this
+ * host.  The strap should respond with a PEER message containing information
+ * about us complete with ID, and then 1 or more PEER messages containing info
+ * on the other peers in the network.
+ */
+bool broadcast_channel::get_peer_list(std::string hostname, int port) {
+    int sock;
+    int bytes_recieved;
+    struct sockaddr_in strap_addr;
+    struct message in_msg, out_msg;
+    struct client_info *peer_info;
+
+    // Setup the socket
+    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+        error(-1, errno, "Could not create bootstrap socket.");
+
+    // Put together the strap address
+    memset(&strap_addr, 0, sizeof(strap_addr));
+    strap_addr.sin_family = AF_INET;
+    strap_addr.sin_addr.s_addr = inet_addr(hostname.c_str());
+    strap_addr.sin_port = port;
+
+    if (connect(sock, (struct sockaddr *) &strap_addr, sizeof(strap_addr)) < 0)
+        error(-1, errno, "Could not connect to bootstrap socket.");
+
+    // Construct the outgoing message
+    memset(&out_msg, 0, sizeof(out_msg));
+    out_msg.type = JOIN;
+    out_msg.cli_id = 0; // We don't yet know our client id
+    out_msg.msg_id = msg_counter++;
+    out_msg.data_len = sizeof(my_info);
+    memcpy(&out_msg.data, &my_info, sizeof(my_info));
+
+    // Send!
+    fprintf(stdout, "Socket setup complete, sending join request...\n");
+    if (send(sock, &out_msg, sizeof(out_msg), 0) != sizeof(out_msg))
+        error(-1, errno, "Could not send bootstrap request.");
+
+    // Wait for response
+    // First message will be info about us as seen by strap
+    if ((bytes_recieved = recv(sock, &in_msg, sizeof(in_msg), 0)) < 0)
+        error(-1, errno, "Could not recieve bootstrap response.");
+    if (in_msg.type != PEER)
+        error(-1, EIO, "Recieved bad bootstrap response message type.");
+
+    peer_info = (struct client_info *) in_msg.data;
+    if (strcmp(peer_info->name, my_info.name) != 0)
+        error(-1, EIO, "Bootstrap response gave bad name.");
+    my_info.id = peer_info->id;
+
+    fprintf(stdout, "Recieved response from bootstrap!  Reading peer list\n");
+
+    // Following 0 or more messages will network peers
+    while (recv(sock, &in_msg,sizeof(in_msg), 0) > 0) {
+        if (in_msg.type != PEER)
+            error(-1, EIO, "Bootstrap sent non-peer message.");
+        peer_info = (struct client_info *) malloc(sizeof(client_info));
+        memcpy(peer_info, in_msg.data, sizeof(peer_info));
+        group_set.push_back(peer_info);
+
+        fprintf(stdout, "Read peer info!  Name %s, host %s, port %d\n",
+                peer_info->name,
+                inet_ntoa(peer_info->ip.sin_addr),
+                peer_info->ip.sin_port);
+    }
+
+    // Clean up
+    if (close(sock) != 0)
+        error(-1, errno, "Error closing bootstrap socket.");
+
+    return true;
+}
+
+/*
+ * Send a PEER message containing information about us to everyone on the peer
+ * list.  They will respond with a READY, indicating that they have added us to
+ * their peer list, and are OK to recieve messages from us.
+ */
+bool broadcast_channel::notify_peers() {
+    int sock;
+    int bytes_recieved;
+    struct message in_msg, out_msg;
+    struct client_info *peer;
+
+    if (group_set.size() <= 0)
+        error(-1, EINVAL, "The peer list is empty!");
+
+    fprintf(stdout, "Notifying %d peers of presence...\n", (int)group_set.size());
+
+    // Setup the socket
+    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+        error(-1, errno, "Could not create bootstrap socket.");
+
+    // Message each peer and let them know we're here.
+    // XXX Haven't ever used any std stuff before, so this is probably
+    // terrible.
+    for (int i = 0; i < (int) group_set.size(); i++) {
+        peer =  group_set[i];
+        fprintf(stdout, "Notifying peer %s.", peer->name);
+
+        // Open socket
+        if (connect(sock, (struct sockaddr *) &peer->ip,
+                    sizeof(peer->ip)) < 0)
+            error(-1, errno, "Could not connect to peer %s.", peer->name);
+
+        // Construct the outgoing message
+        memset(&out_msg, 0, sizeof(out_msg));
+        out_msg.type = PEER;
+        out_msg.cli_id = my_info.id;
+        out_msg.msg_id = msg_counter++;
+        out_msg.data_len = sizeof(my_info);
+        memcpy(&out_msg.data, &my_info, sizeof(my_info));
+
+        // Send!
+        fprintf(stdout, "Sending...\n");
+        if (send(sock, &out_msg, sizeof(out_msg), 0) != sizeof(out_msg))
+            error(-1, errno, "Could not send peer notification.");
+
+        // Get reply
+        if ((bytes_recieved = recv(sock, &in_msg, sizeof(in_msg), 0)) < 0)
+            error(-1, errno, "Could not recieve peer response.");
+        if (in_msg.type != READY)
+            error(-1, errno, "Recieved bad peer response message type.");
+
+        // Close socket
+        if (close(sock) != 0)
+            error(-1, errno, "Error closing peer socket.");
+    }
+
+    return true;
+}
+
+
 bool broadcast_channel::join(std::string hostname, int port){
     if (hostname.empty()) {
         // Start new broadcast group
         my_info.id = 1;
 
     } else {
-        // Join existing broadcast group via a known member (the "strap")
-        int sock;
-        struct sockaddr_in strap_addr;
-        struct message join_msg;
+        // Join an existing broadcast group
+        if (! get_peer_list(hostname, port))
+            error(-1, errno, "Could not get peer list!");
 
-        // Setup the socket
-        if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-            error(-1, errno, "Could not open bootstrap socket.");
-
-        // Put together the strap address
-        memset(&strap_addr, 0, sizeof(strap_addr));
-        strap_addr.sin_family = AF_INET;
-        strap_addr.sin_addr.s_addr = inet_addr(hostname.c_str());
-        strap_addr.sin_port = port;
-
-        if (connect(sock, (struct sockaddr *) &strap_addr, sizeof(strap_addr)) < 0)
-            error(-1, errno, "Could not connect to bootstrap socket.");
-
-        // Construct the outgoing message
-        memset(&join_msg, 0, sizeof(join_msg));
-        join_msg.type = JOIN;
-        join_msg.cli_id = 0; // We don't yet know our client id
-        join_msg.msg_id = 0; // Join is always message 0
-        join_msg.data_len = sizeof(my_info);
-        memcpy(&join_msg.data, &my_info, sizeof(my_info));
-
-        // Send!
-        fprintf(stdout, "Socket setup complete, sending join request...\n");
-        if (send(sock, &join_msg, sizeof(join_msg), 0) != sizeof(join_msg))
-            error(-1, errno, "Could not send bootstrap request.");
-
-        // Wait for response
-        // First message will be info about the local host
-        int bytes_recieved;
-        struct message strap_msg;
-        if ((bytes_recieved = recv(sock, &strap_msg, sizeof(strap_msg), 0)) < 0)
-            error(-1, errno, "Could not recieve bootstrap response.");
-        if (strap_msg.type != PEER)
-            error(-1, EIO, "Recieved bad bootstrap response message type.");
-        // Following 0 or more messages will network peers
-
+        if (! notify_peers())
+            error(-1, errno, "Could not notify peers!");
 
     }
+
+    // TODO: Start of a channel listener
+
     return false;
 }
 

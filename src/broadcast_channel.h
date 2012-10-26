@@ -22,8 +22,9 @@ struct client_info {
 
 enum msg_t {
     // Functional messages
-    JOIN,
-    PEER,
+    JOIN,   // Initial message sent to known host
+    PEER,   // Tell about a peer (this or another)
+    READY,
     QUIT,
     // Broadcast algorithms
     CLIENT_SERVER,
@@ -58,7 +59,7 @@ class broadcast_channel {
         //The client info for this broadcast_channel
         struct client_info my_info;
         //The client info for everyone in the broadcast group
-        std::vector< struct client_info > group_set;
+        std::vector< struct client_info * > group_set;
         //The list of currently-active message decoders
         std::vector< Decoder > decoders;
         //The chunk receiver thread
@@ -67,6 +68,9 @@ class broadcast_channel {
         channel_listener *listener;
         //The monotonically increasing unique message id counter for this sender
         unsigned long msg_counter;
+
+        bool get_peer_list(std::string hostname, int port);
+        bool notify_peers();
 };
 
 #endif /* __BROADCAST_CHANNEL_H */
