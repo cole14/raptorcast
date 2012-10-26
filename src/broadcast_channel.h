@@ -12,14 +12,20 @@
 #include "encoder.h"
 
 #define PACKET_LEN 256
+#define MAX_NAME_LEN 128  // Has to fit w/in PACKET_LEN
 
 struct client_info {
-    std::string name;
     struct sockaddr_in ip;
     unsigned int id;
+    char name[MAX_NAME_LEN];
 };
 
-enum algo_t {
+enum msg_t {
+    // Functional messages
+    JOIN,
+    PEER,
+    QUIT,
+    // Broadcast algorithms
     CLIENT_SERVER,
     TRAD,
     COOP,
@@ -27,7 +33,7 @@ enum algo_t {
 };
 
 struct message {
-    algo_t type;
+    msg_t type;
     unsigned int cli_id;
     unsigned long msg_id;
     int data_len;
@@ -43,10 +49,10 @@ class broadcast_channel {
         virtual ~broadcast_channel(void);
 
         //Connect to an existing broadcast group
-        bool connect(std::string hostname, int port);
+        bool join(std::string hostname, int port);
 
         //Broadcast a message over this channel
-        void send(unsigned char *buf, size_t buf_len);
+        void broadcast(unsigned char *buf, size_t buf_len);
 
     private:
         //The client info for this broadcast_channel

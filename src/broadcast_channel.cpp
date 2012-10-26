@@ -5,7 +5,10 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/ip.h>
+#include <arpa/inet.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "broadcast_channel.h"
 
@@ -24,7 +27,10 @@ broadcast_channel::broadcast_channel(std::string name, int port, channel_listene
     msg_counter = 0;
 
     //Initialize the client info struct
-    my_info.name = name;
+    if (name.size() > MAX_NAME_LEN)
+        error(-1, EINVAL, "Chosen name (%s) is too long (max %d)",
+                name.c_str(), MAX_NAME_LEN);
+    strcpy(my_info.name, name.c_str());
     my_info.id = 0;
 
     //Get the hostname of the local host
@@ -52,10 +58,58 @@ broadcast_channel::broadcast_channel(std::string name, int port, channel_listene
 
 }
 
-bool broadcast_channel::connect(std::string hostname, int port){
+bool broadcast_channel::join(std::string hostname, int port){
+    if (hostname.empty()) {
+        // Start new broadcast group
+        my_info.id = 1;
+
+    } else {
+        // Join existing broadcast group via a known member (the "strap")
+        int sock;
+        struct sockaddr_in strap_addr;
+        struct message join_msg;
+
+        // Setup the socket
+        if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+            error(-1, errno, "Could not open bootstrap socket.");
+
+        // Put together the strap address
+        memset(&strap_addr, 0, sizeof(strap_addr));
+        strap_addr.sin_family = AF_INET;
+        strap_addr.sin_addr.s_addr = inet_addr(hostname.c_str());
+        strap_addr.sin_port = port;
+
+        if (connect(sock, (struct sockaddr *) &strap_addr, sizeof(strap_addr)) < 0)
+            error(-1, errno, "Could not connect to bootstrap socket.");
+
+        // Construct the outgoing message
+        memset(&join_msg, 0, sizeof(join_msg));
+        join_msg.type = JOIN;
+        join_msg.cli_id = 0; // We don't yet know our client id
+        join_msg.msg_id = 0; // Join is always message 0
+        join_msg.data_len = sizeof(my_info);
+        memcpy(&join_msg.data, &my_info, sizeof(my_info));
+
+        // Send!
+        fprintf(stdout, "Socket setup complete, sending join request...\n");
+        if (send(sock, &join_msg, sizeof(join_msg), 0) != sizeof(join_msg))
+            error(-1, errno, "Could not send bootstrap request.");
+
+        // Wait for response
+        // First message will be info about the local host
+        int bytes_recieved;
+        struct message strap_msg;
+        if ((bytes_recieved = recv(sock, &strap_msg, sizeof(strap_msg), 0)) < 0)
+            error(-1, errno, "Could not recieve bootstrap response.");
+        if (strap_msg.type != PEER)
+            error(-1, EIO, "Recieved bad bootstrap response message type.");
+        // Following 0 or more messages will network peers
+
+
+    }
     return false;
 }
 
-void broadcast_channel::send(unsigned char *buf, size_t buf_len){
+void broadcast_channel::broadcast(unsigned char *buf, size_t buf_len){
 }
 

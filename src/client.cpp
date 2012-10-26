@@ -89,7 +89,7 @@ static int read_port(void){
     if(port <= INT_MIN || port >= INT_MAX){
         error(-1, ERANGE, "Unable to read port");
     }
-    if(port == 0){
+    if(port < 1 || port > 65535){
         error(-1, EINVAL, "Port must be in range [1, 65535]");
     }
 
@@ -112,8 +112,9 @@ void client::run_cli(){
     port = read_port();
 
     //Connect to the broadcast group through the bootstrap node
-    if(!chan->connect(bootstrap_host, port)){
-        error(-1, 0, "Unable to connect to bootstrap node (%s:%d)!", bootstrap_host.c_str(), port);
+    if(!chan->join(bootstrap_host, port)){
+        error(-1, 0, "Unable to connect to bootstrap node (%s:%d)!",
+	    bootstrap_host.c_str(), port);
     }
 
     fprintf(stdout, "Successfully connected!\n");
