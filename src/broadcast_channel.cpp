@@ -112,7 +112,7 @@ bool broadcast_channel::get_peer_list(std::string hostname, int port) {
 
     fprintf(stdout, "Recieved response from bootstrap!  Reading peer list\n");
 
-    // Following 0 or more messages will network peers
+    // Following 0 or more messages will represent network peers
     while (recv(sock, &in_msg,sizeof(in_msg), 0) > 0) {
         if (in_msg.type != PEER)
             error(-1, EIO, "Bootstrap sent non-peer message.");
@@ -190,6 +190,83 @@ bool broadcast_channel::notify_peers() {
     }
 
     return true;
+}
+
+bool broadcast_channel::send_peer_list(int client_sock, struct client_info *target) {
+    return false;
+}
+
+bool broadcast_channel::accept_connections() {
+    int server_sock, client_sock;
+    struct sockaddr_in client_addr;
+    int bytes_recieved;
+    struct message in_message, out_message;
+    struct client_info *peer_info;
+
+    // Set up the socket
+    if ((server_sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+        error(-1, errno, "Could not create server socket.");
+    if (bind(server_sock, (struct sockaddr *) &my_info.ip, sizeof(my_info.ip)) < 0)
+        error(-1, errno, "Could not bind to socket.");
+
+    listen(server_sock, 10);
+
+    while(1) {
+        fprintf(stdout, "Server waiting...\n");
+
+        // Wait for a connection
+        client_sock = accept(server_sock, (struct sockaddr *) &client_addr, sizeof(client_addr), 0);
+        if (client_sock < 0)
+            error(-1, errno, "Could not accept client.");
+        fprintf(stdout, "accepted client!\n");
+
+        // Handle the request
+        if ((bytes_recieved = recv(sock, &in_msg, sizeof(in_msg), 0)) < 0)
+            error(-1, errno, "Could not recieve client message.");
+
+        switch (in_msg.type) {
+            case JOIN :
+                send_peer_list(client_sock, &in_msg);
+                break;
+            case PEER:
+                // Add the new peer to the group
+                peer_info = (struct client_info *) malloc(sizeof(client_info));
+                memcpy(peer_info, in_msg.data, sizeof(peer_info));
+                group_set.push_back(peer_info);
+
+                fprintf(stdout, "Recieved peer request!  Name %s, host %s, port %d\n",
+                        peer_info->name,
+                        inet_ntoa(peer_info->ip.sin_addr),
+                        peer_info->ip.sin_port);
+
+                // Send our READY reply
+                memset(&out_msg, 0, sizeof(out_msg));
+                out_msg.type = READY;
+                out_msg.cli_id = my_info.id;
+                out_msg.msg_id = msg_counter++;
+
+                fprintf(stdout, "Sending READY reply...\n");
+                if (send(sock, &out_msg, sizeof(out_msg), 0) != sizeof(out_msg))
+                    error(-1, errno, "Could not send peer notification.");
+
+                // Close socket
+                if (close(client_sock) != 0)
+                    error(-1, errno, "Error closing peer socket.");
+
+                break;
+            case QUIT:
+                // Not implemented
+                break;
+            case CLIENT_SERVER:
+            case TRAD:
+            case COOP:
+            case RAPTOR:
+                // Not implemented
+                break;
+            default:
+                break;
+        }
+    }
 }
 
 

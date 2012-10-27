@@ -22,7 +22,8 @@ static void usage(void){
 }
 
 /*
- * Constructor. Initializes the broadcast_channel with this client's self-identifying information.
+ * Constructor. Initializes the broadcast_channel with this client's
+ * self-identifying information.
  */
 client::client(std::string name, int port)
 :chan(NULL), name(name)

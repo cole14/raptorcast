@@ -70,7 +70,9 @@ class broadcast_channel {
         unsigned long msg_counter;
 
         bool get_peer_list(std::string hostname, int port);
+        bool send_peer_list(int client_sock, struct client_info *target);
         bool notify_peers();
+        bool accept_connections();
 };
 
 #endif /* __BROADCAST_CHANNEL_H */
