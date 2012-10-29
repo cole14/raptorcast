@@ -10,6 +10,7 @@ class client : public channel_listener {
         ~client();
 
         void receive(unsigned char *buf, size_t buf_len);
+        void connect();
         void run_cli();
 
     private:

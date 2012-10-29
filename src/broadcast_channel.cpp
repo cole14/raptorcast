@@ -1,14 +1,15 @@
+#include <arpa/inet.h>
 #include <error.h>
 #include <errno.h>
 #include <netdb.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <netinet/ip.h>
-#include <arpa/inet.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 #include "broadcast_channel.h"
 
@@ -58,6 +59,19 @@ broadcast_channel::broadcast_channel(std::string name, int port, channel_listene
 
 }
 
+void broadcast_channel::print_peers() {
+    struct client_info *peer;
+    for (unsigned int i = 0; i < group_set.size(); i++) {
+        peer = group_set[i];
+        printf("Peer %d: name %s, ip %s, port %d\n",
+                peer->id,
+                peer->name,
+                inet_ntoa(peer->ip.sin_addr),
+                ntohs(peer->ip.sin_port));
+    }
+}
+
+
 void broadcast_channel::construct_message(msg_t type, struct message *dest, const void *src, size_t n) {
     memset(dest, 0, sizeof(&dest));
     dest->type = type;
@@ -77,7 +91,8 @@ void broadcast_channel::construct_message(msg_t type, struct message *dest, cons
 bool broadcast_channel::get_peer_list(std::string hostname, int port) {
     int sock;
     int bytes_recieved;
-    struct sockaddr_in strap_addr;
+    struct addrinfo *strap_h;
+    struct sockaddr_in *strap_addr;
     struct message in_msg, out_msg;
     struct client_info *peer_info;
 
@@ -86,13 +101,12 @@ bool broadcast_channel::get_peer_list(std::string hostname, int port) {
         error(-1, errno, "Could not create bootstrap socket");
 
     // Put together the strap address
-    memset(&strap_addr, 0, sizeof(strap_addr));
-    strap_addr.sin_family = AF_INET;
-    strap_addr.sin_port = htons(port);
-    if (inet_aton(hostname.c_str(), &strap_addr.sin_addr) == 0)
-        error(-1, errno, "Could not parse bootstrap inet address");
+    if (0 != getaddrinfo(hostname.c_str(), NULL, NULL, &strap_h))
+        error(-1, h_errno, "Unable to resolve bootstrap host");
+    strap_addr = (sockaddr_in *)strap_h->ai_addr;
+    strap_addr->sin_port = htons(port);
 
-    if (connect(sock, (struct sockaddr *) &strap_addr, sizeof(strap_addr)) < 0)
+    if (connect(sock, (struct sockaddr *) strap_addr, sizeof(struct sockaddr_in)) < 0)
         error(-1, errno, "Could not connect to bootstrap socket");
 
     // Construct the outgoing message
@@ -131,6 +145,8 @@ bool broadcast_channel::get_peer_list(std::string hostname, int port) {
     // Clean up
     if (close(sock) != 0)
         error(-1, errno, "Error closing bootstrap socket");
+
+    freeaddrinfo(strap_h);
 
     return true;
 }
@@ -223,7 +239,13 @@ bool broadcast_channel::send_peer_list(int sock, struct client_info *target) {
     return true;
 }
 
-bool broadcast_channel::accept_connections() {
+void *broadcast_channel::start_server(void *args) {
+    broadcast_channel *bc = (broadcast_channel *) args;
+    bc->accept_connections();
+    return NULL;
+}
+
+void broadcast_channel::accept_connections() {
     int server_sock, client_sock;
     int bytes_recieved;
     struct message in_msg, out_msg;
@@ -305,7 +327,6 @@ bool broadcast_channel::accept_connections() {
             error(-1, errno, "Error closing peer socket");
 
     }
-    return true;
 }
 
 
@@ -330,9 +351,10 @@ bool broadcast_channel::join(std::string hostname, int port){
     memcpy(my_info_copy, &my_info, sizeof(my_info));
     group_set.push_back(my_info_copy);
 
-    accept_connections();
+    pthread_t listen_thread;
+    pthread_create( &listen_thread, NULL, start_server, (void *)this);
 
-    return false;
+    return true;
 }
 
 void broadcast_channel::broadcast(unsigned char *buf, size_t buf_len){

@@ -98,11 +98,11 @@ static int read_port(void){
 }
 
 /*
- * Runs the command-line interface for the client. This asks the user for
+ * Connects to the broadcast group. This asks the user for
  * the hostname and port of the bootstrap node to connect to, and then
- * queries the user for various commands.
+ * uses the broadcast channel to make the connection.
  */
-void client::run_cli(){
+void client::connect(){
     int port = 0;
 
     //Get the bootstrap node's hostname:port from the user
@@ -123,6 +123,39 @@ void client::run_cli(){
     fprintf(stdout, "Successfully connected!\n");
 }
 
+void client::run_cli() {
+    int max_line = 256;
+    char line[max_line];
+
+    while (1) {
+        printf("Enter command\n");
+        memset(line, 0, sizeof(line));
+        while (fgets(line, max_line, stdin) != NULL) {
+            // Eliminate trailing whitespace
+            for (int i = strlen(line)-1; i >=0; i--) {
+                if (isspace(line[i])) line[i] = '\0';
+            }
+
+            if (strlen(line) == 0) continue;
+
+            if (strcmp(line, "peers") == 0 || strcmp(line, "p") == 0) {
+                printf("Printing list of peers\n");
+                chan->print_peers();
+
+            } else if (strcmp(line, "quit") == 0 || strcmp(line, "q") == 0) {
+                printf("Quitting\n");
+
+            } else if (strcmp(line, "help") == 0 || strcmp(line, "h") == 0) {
+                printf("Commands: [p]eers, [q]uit, [h]elp\n");
+
+            } else {
+                printf("Invalid command: %s\n", line);
+            }
+        }
+    }
+}
+
+
 int main(int argc, char *argv[]){
     if(argc != 3){
         usage();
@@ -137,7 +170,10 @@ int main(int argc, char *argv[]){
     //Initialize the client
     client c(name, port);
 
-    //Run the client
+    // Connect to the group
+    c.connect();
+
+    // Run the command line interface
     c.run_cli();
 
     return 0;

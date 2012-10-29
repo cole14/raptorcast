@@ -55,6 +55,8 @@ class broadcast_channel {
         //Broadcast a message over this channel
         void broadcast(unsigned char *buf, size_t buf_len);
 
+        void print_peers();
+
     private:
         //The client info for this broadcast_channel
         struct client_info my_info;
@@ -72,7 +74,8 @@ class broadcast_channel {
         bool get_peer_list(std::string hostname, int port);
         bool send_peer_list(int client_sock, struct client_info *target);
         bool notify_peers();
-        bool accept_connections();
+        void accept_connections();
+        static void *start_server(void *);
 
         // An id that is not currently in use within the peer set
         // Note that this is terrible and presents all sorts of race conditions
