@@ -109,8 +109,10 @@ void client::run_cli(){
     fprintf(stdout, "Enter bootstrap hostname: ");
     std::string bootstrap_host(read_hostname());
 
-    fprintf(stdout, "Enter bootstrap port: ");
-    port = read_port();
+    if (!bootstrap_host.empty()) {
+        fprintf(stdout, "Enter bootstrap port: ");
+        port = read_port();
+    }
 
     //Connect to the broadcast group through the bootstrap node
     if(!chan->join(bootstrap_host, port)){

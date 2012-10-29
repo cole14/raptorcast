@@ -58,6 +58,15 @@ broadcast_channel::broadcast_channel(std::string name, int port, channel_listene
 
 }
 
+void broadcast_channel::construct_message(msg_t type, struct message *dest, const void *src, size_t n) {
+    memset(dest, 0, sizeof(&dest));
+    dest->type = type;
+    dest->cli_id = my_info.id;
+    dest->msg_id = msg_counter++;
+    dest->data_len = n;
+    memcpy(&dest->data, src, n);
+}
+
 /*
  * Request the group set from a known host (the "strap")
  * Sends a JOIN message to hostname:port, containing information about this
@@ -79,19 +88,16 @@ bool broadcast_channel::get_peer_list(std::string hostname, int port) {
     // Put together the strap address
     memset(&strap_addr, 0, sizeof(strap_addr));
     strap_addr.sin_family = AF_INET;
-    strap_addr.sin_addr.s_addr = inet_addr(hostname.c_str());
+    // XXX is this correct?
+    strap_addr.sin_addr.s_addr = inet_aton(hostname.c_str());
+    fprintf(stdout, "remote ip: %s\n", inet_ntoa(strap_addr.sin_addr.s_addr));
     strap_addr.sin_port = port;
 
     if (connect(sock, (struct sockaddr *) &strap_addr, sizeof(strap_addr)) < 0)
         error(-1, errno, "Could not connect to bootstrap socket.");
 
     // Construct the outgoing message
-    memset(&out_msg, 0, sizeof(out_msg));
-    out_msg.type = JOIN;
-    out_msg.cli_id = 0; // We don't yet know our client id
-    out_msg.msg_id = msg_counter++;
-    out_msg.data_len = sizeof(my_info);
-    memcpy(&out_msg.data, &my_info, sizeof(my_info));
+    construct_message(JOIN, &out_msg, &my_info, sizeof(my_info));
 
     // Send!
     fprintf(stdout, "Socket setup complete, sending join request...\n");
@@ -166,12 +172,7 @@ bool broadcast_channel::notify_peers() {
             error(-1, errno, "Could not connect to peer %s.", peer->name);
 
         // Construct the outgoing message
-        memset(&out_msg, 0, sizeof(out_msg));
-        out_msg.type = PEER;
-        out_msg.cli_id = my_info.id;
-        out_msg.msg_id = msg_counter++;
-        out_msg.data_len = sizeof(my_info);
-        memcpy(&out_msg.data, &my_info, sizeof(my_info));
+        construct_message(PEER, &out_msg, &my_info, sizeof(my_info));
 
         // Send!
         fprintf(stdout, "Sending...\n");
@@ -192,21 +193,64 @@ bool broadcast_channel::notify_peers() {
     return true;
 }
 
-bool broadcast_channel::send_peer_list(int client_sock, struct client_info *target) {
-    return false;
+unsigned int broadcast_channel::get_unused_id() {
+    unsigned int max_used = 0;
+    for (int i = 0; i < (int) group_set.size(); i++)
+        if (group_set[i]->id > max_used) max_used = group_set[i]->id;
+    return max_used + 1;
+}
+
+bool broadcast_channel::send_peer_list(int sock, struct client_info *target) {
+    struct message out_msg;
+    struct client_info *peer;
+
+    // First, send info about the way we see the target
+    target->id = get_unused_id();
+
+    // Construct the outgoing message
+    construct_message(PEER, &out_msg, target, sizeof(struct client_info));
+
+    // Send!
+    fprintf(stdout, "Sending...\n");
+    if (send(sock, &out_msg, sizeof(out_msg), 0) != sizeof(out_msg))
+        error(-1, errno, "Could not send peer notification.");
+
+    // Next, send the current list of peers
+    fprintf(stdout, "Sending peer list\n");
+    for (int i = 0; i < (int) group_set.size(); i++) {
+        peer =  group_set[i];
+        fprintf(stdout, "Sending infor for peer %s.", peer->name);
+
+        // Construct the outgoing message
+        construct_message(PEER, &out_msg, peer, sizeof(struct client_info));
+
+        // Send!
+        fprintf(stdout, "Sending...\n");
+        if (send(sock, &out_msg, sizeof(out_msg), 0) != sizeof(out_msg))
+            error(-1, errno, "Could not send peer notification.");
+    }
+
+    return true;
 }
 
 bool broadcast_channel::accept_connections() {
     int server_sock, client_sock;
-    struct sockaddr_in client_addr;
     int bytes_recieved;
-    struct message in_message, out_message;
+    struct message in_msg, out_msg;
     struct client_info *peer_info;
+    struct sockaddr_in servaddr;
 
     // Set up the socket
     if ((server_sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
         error(-1, errno, "Could not create server socket.");
-    if (bind(server_sock, (struct sockaddr *) &my_info.ip, sizeof(my_info.ip)) < 0)
+
+    // Put together a sockaddr for us.  Note that the only difference between this and my_info
+    // is that my_info's sin_addr represents this IP address, whereas we want INADDR_ANY
+    memset(&servaddr, 0, sizeof(servaddr));
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    servaddr.sin_port = my_info.ip.sin_port;
+    if (bind(server_sock, (struct sockaddr *) &servaddr, sizeof(my_info.ip)) < 0)
         error(-1, errno, "Could not bind to socket.");
 
     listen(server_sock, 10);
@@ -215,19 +259,20 @@ bool broadcast_channel::accept_connections() {
         fprintf(stdout, "Server waiting...\n");
 
         // Wait for a connection
-        client_sock = accept(server_sock, (struct sockaddr *) &client_addr, sizeof(client_addr), 0);
+        client_sock = accept(server_sock, NULL, NULL);
         if (client_sock < 0)
             error(-1, errno, "Could not accept client.");
         fprintf(stdout, "accepted client!\n");
 
         // Handle the request
-        if ((bytes_recieved = recv(sock, &in_msg, sizeof(in_msg), 0)) < 0)
+        if ((bytes_recieved = recv(client_sock, &in_msg, sizeof(in_msg), 0)) < 0)
             error(-1, errno, "Could not recieve client message.");
 
         switch (in_msg.type) {
             case JOIN :
-                send_peer_list(client_sock, &in_msg);
+                send_peer_list(client_sock, (struct client_info *)&in_msg.data);
                 break;
+
             case PEER:
                 // Add the new peer to the group
                 peer_info = (struct client_info *) malloc(sizeof(client_info));
@@ -246,27 +291,32 @@ bool broadcast_channel::accept_connections() {
                 out_msg.msg_id = msg_counter++;
 
                 fprintf(stdout, "Sending READY reply...\n");
-                if (send(sock, &out_msg, sizeof(out_msg), 0) != sizeof(out_msg))
+                if (send(client_sock, &out_msg, sizeof(out_msg), 0) != sizeof(out_msg))
                     error(-1, errno, "Could not send peer notification.");
 
-                // Close socket
-                if (close(client_sock) != 0)
-                    error(-1, errno, "Error closing peer socket.");
-
                 break;
+
             case QUIT:
                 // Not implemented
                 break;
+
             case CLIENT_SERVER:
             case TRAD:
             case COOP:
             case RAPTOR:
                 // Not implemented
                 break;
+
             default:
                 break;
         }
+
+        // Close socket
+        if (close(client_sock) != 0)
+            error(-1, errno, "Error closing peer socket.");
+
     }
+    return true;
 }
 
 
@@ -286,6 +336,7 @@ bool broadcast_channel::join(std::string hostname, int port){
     }
 
     // TODO: Start of a channel listener
+    accept_connections();
 
     return false;
 }

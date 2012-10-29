@@ -73,6 +73,11 @@ class broadcast_channel {
         bool send_peer_list(int client_sock, struct client_info *target);
         bool notify_peers();
         bool accept_connections();
+
+        // An id that is not currently in use within the peer set
+        // Note that this is terrible and presents all sorts of race conditions
+        unsigned int get_unused_id();
+        void construct_message(msg_t type, struct message *dest, const void *src, size_t n);
 };
 
 #endif /* __BROADCAST_CHANNEL_H */
