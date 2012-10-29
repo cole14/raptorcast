@@ -83,18 +83,17 @@ bool broadcast_channel::get_peer_list(std::string hostname, int port) {
 
     // Setup the socket
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-        error(-1, errno, "Could not create bootstrap socket.");
+        error(-1, errno, "Could not create bootstrap socket");
 
     // Put together the strap address
     memset(&strap_addr, 0, sizeof(strap_addr));
     strap_addr.sin_family = AF_INET;
-    // XXX is this correct?
-    strap_addr.sin_addr.s_addr = inet_aton(hostname.c_str());
-    fprintf(stdout, "remote ip: %s\n", inet_ntoa(strap_addr.sin_addr.s_addr));
-    strap_addr.sin_port = port;
+    strap_addr.sin_port = htons(port);
+    if (inet_aton(hostname.c_str(), &strap_addr.sin_addr) == 0)
+        error(-1, errno, "Could not parse bootstrap inet address");
 
     if (connect(sock, (struct sockaddr *) &strap_addr, sizeof(strap_addr)) < 0)
-        error(-1, errno, "Could not connect to bootstrap socket.");
+        error(-1, errno, "Could not connect to bootstrap socket");
 
     // Construct the outgoing message
     construct_message(JOIN, &out_msg, &my_info, sizeof(my_info));
@@ -116,20 +115,20 @@ bool broadcast_channel::get_peer_list(std::string hostname, int port) {
         error(-1, EIO, "Bootstrap response gave bad name.");
     my_info.id = peer_info->id;
 
-    fprintf(stdout, "Recieved response from bootstrap!  Reading peer list\n");
+    fprintf(stdout, "Recieved response from bootstrap (id %d)!  Reading peer list\n", my_info.id);
 
     // Following 0 or more messages will represent network peers
     while (recv(sock, &in_msg,sizeof(in_msg), 0) > 0) {
         if (in_msg.type != PEER)
             error(-1, EIO, "Bootstrap sent non-peer message.");
         peer_info = (struct client_info *) malloc(sizeof(client_info));
-        memcpy(peer_info, in_msg.data, sizeof(peer_info));
+        memcpy(peer_info, in_msg.data, sizeof(struct client_info));
         group_set.push_back(peer_info);
 
         fprintf(stdout, "Read peer info!  Name %s, host %s, port %d\n",
                 peer_info->name,
                 inet_ntoa(peer_info->ip.sin_addr),
-                peer_info->ip.sin_port);
+                ntohs(peer_info->ip.sin_port));
     }
 
     // Clean up
@@ -155,16 +154,17 @@ bool broadcast_channel::notify_peers() {
 
     fprintf(stdout, "Notifying %d peers of presence...\n", (int)group_set.size());
 
-    // Setup the socket
-    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-        error(-1, errno, "Could not create bootstrap socket.");
 
     // Message each peer and let them know we're here.
-    // XXX Haven't ever used any std stuff before, so this is probably
-    // terrible.
+    // When this is called, we haven't yet added ourself to the peer list,
+    // so no check is needed
     for (int i = 0; i < (int) group_set.size(); i++) {
         peer =  group_set[i];
-        fprintf(stdout, "Notifying peer %s.", peer->name);
+        fprintf(stdout, "Notifying peer %s.\n", peer->name);
+
+        // Setup the socket
+        if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+            error(-1, errno, "Could not create bootstrap socket.");
 
         // Open socket
         if (connect(sock, (struct sockaddr *) &peer->ip,
@@ -219,7 +219,7 @@ bool broadcast_channel::send_peer_list(int sock, struct client_info *target) {
     fprintf(stdout, "Sending peer list\n");
     for (int i = 0; i < (int) group_set.size(); i++) {
         peer =  group_set[i];
-        fprintf(stdout, "Sending infor for peer %s.", peer->name);
+        fprintf(stdout, "Sending info for peer %s.\n", peer->name);
 
         // Construct the outgoing message
         construct_message(PEER, &out_msg, peer, sizeof(struct client_info));
@@ -251,7 +251,7 @@ bool broadcast_channel::accept_connections() {
     servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
     servaddr.sin_port = my_info.ip.sin_port;
     if (bind(server_sock, (struct sockaddr *) &servaddr, sizeof(my_info.ip)) < 0)
-        error(-1, errno, "Could not bind to socket.");
+        error(-1, errno, "Could not bind to socket");
 
     listen(server_sock, 10);
 
@@ -266,7 +266,7 @@ bool broadcast_channel::accept_connections() {
 
         // Handle the request
         if ((bytes_recieved = recv(client_sock, &in_msg, sizeof(in_msg), 0)) < 0)
-            error(-1, errno, "Could not recieve client message.");
+            error(-1, errno, "Could not recieve client message");
 
         switch (in_msg.type) {
             case JOIN :
@@ -276,13 +276,13 @@ bool broadcast_channel::accept_connections() {
             case PEER:
                 // Add the new peer to the group
                 peer_info = (struct client_info *) malloc(sizeof(client_info));
-                memcpy(peer_info, in_msg.data, sizeof(peer_info));
+                memcpy(peer_info, &in_msg.data, sizeof(struct client_info));
                 group_set.push_back(peer_info);
 
                 fprintf(stdout, "Recieved peer request!  Name %s, host %s, port %d\n",
                         peer_info->name,
                         inet_ntoa(peer_info->ip.sin_addr),
-                        peer_info->ip.sin_port);
+                        ntohs(peer_info->ip.sin_port));
 
                 // Send our READY reply
                 memset(&out_msg, 0, sizeof(out_msg));
@@ -335,7 +335,12 @@ bool broadcast_channel::join(std::string hostname, int port){
 
     }
 
-    // TODO: Start of a channel listener
+    // Add myself to the peer list (we create a copy to make cleanup easier)
+    struct client_info *my_info_copy;
+    my_info_copy = (struct client_info *) malloc(sizeof(struct client_info));
+    memcpy(my_info_copy, &my_info, sizeof(my_info));
+    group_set.push_back(my_info_copy);
+
     accept_connections();
 
     return false;
