@@ -354,7 +354,7 @@ bool broadcast_channel::join(std::string hostname, int port){
 
     }
 
-    // Add myself to the peer list (we create a copy to make cleanup easier)
+    // Add myself to the peer list 
     group_set.push_back(my_info);
 
     pthread_t listen_thread;
