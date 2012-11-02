@@ -19,7 +19,12 @@ extern int errno;
 
 //Default destructor - nothing to do
 broadcast_channel::~broadcast_channel(void)
-{ }
+{
+    //Delete the group_set
+    for(std::vector< struct client_info * >::iterator it = group_set.begin(); it != group_set.end(); it++){
+        free(*it);
+    }
+}
 
 //Default constructor - initialize the port member
 broadcast_channel::broadcast_channel(std::string name, int port, channel_listener *lstnr){
@@ -27,12 +32,15 @@ broadcast_channel::broadcast_channel(std::string name, int port, channel_listene
     listener = lstnr;
     msg_counter = 0;
 
+    //Allocate the client_info struct
+    my_info = (struct client_info *)calloc(1, sizeof(struct client_info));
+
     //Initialize the client info struct
     if (name.size() > MAX_NAME_LEN)
         error(-1, EINVAL, "Chosen name (%s) is too long (max %d)",
                 name.c_str(), MAX_NAME_LEN);
-    strcpy(my_info.name, name.c_str());
-    my_info.id = 0;
+    strcpy(my_info->name, name.c_str());
+    my_info->id = 0;
 
     //Get the hostname of the local host
     char local_h_name[256];
@@ -45,17 +53,17 @@ broadcast_channel::broadcast_channel(std::string name, int port, channel_listene
     if(0 != getaddrinfo(local_h_name, NULL, NULL, &local_h)){
         error(-1, h_errno, "Unable to get localhost host information");
     }
-    my_info.ip = *((sockaddr_in *)local_h->ai_addr);
-    my_info.ip.sin_port = htons(port);
+    my_info->ip = *((sockaddr_in *)local_h->ai_addr);
+    my_info->ip.sin_port = htons(port);
 
     //delete the local_h linked list
     freeaddrinfo(local_h);
 
     //for debugging purposes:
-    getnameinfo((sockaddr*)&my_info.ip, sizeof(my_info.ip), local_h_name, 256, NULL, 0, NI_NOFQDN);
-    fprintf(stdout, "Successfully initialized broadcast channel associated on %s:%d (", local_h_name, ntohs(my_info.ip.sin_port));
-    getnameinfo((sockaddr*)&my_info.ip, sizeof(my_info.ip), local_h_name, 256, NULL, 0, NI_NUMERICHOST);
-    fprintf(stdout, "%s:%d)\n", local_h_name, ntohs(my_info.ip.sin_port));
+    getnameinfo((sockaddr*)&(my_info->ip), sizeof(my_info->ip), local_h_name, 256, NULL, 0, NI_NOFQDN);
+    fprintf(stdout, "Successfully initialized broadcast channel associated on %s:%d (", local_h_name, ntohs(my_info->ip.sin_port));
+    getnameinfo((sockaddr*)&(my_info->ip), sizeof(my_info->ip), local_h_name, 256, NULL, 0, NI_NUMERICHOST);
+    fprintf(stdout, "%s:%d)\n", local_h_name, ntohs(my_info->ip.sin_port));
 
 }
 
@@ -76,7 +84,7 @@ void broadcast_channel::print_peers(int indent) {
 void broadcast_channel::construct_message(msg_t type, struct message *dest, const void *src, size_t n) {
     memset(dest, 0, sizeof(&dest));
     dest->type = type;
-    dest->cli_id = my_info.id;
+    dest->cli_id = my_info->id;
     dest->msg_id = msg_counter++;
     dest->data_len = n;
     memcpy(&dest->data, src, n);
@@ -111,7 +119,7 @@ bool broadcast_channel::get_peer_list(std::string hostname, int port) {
         error(-1, errno, "Could not connect to bootstrap socket");
 
     // Construct the outgoing message
-    construct_message(JOIN, &out_msg, &my_info, sizeof(my_info));
+    construct_message(JOIN, &out_msg, my_info, sizeof(my_info));
 
     // Send!
     if (send(sock, &out_msg, sizeof(out_msg), 0) != sizeof(out_msg))
@@ -125,9 +133,9 @@ bool broadcast_channel::get_peer_list(std::string hostname, int port) {
         error(-1, EIO, "Recieved bad bootstrap response message type");
 
     peer_info = (struct client_info *) in_msg.data;
-    if (strcmp(peer_info->name, my_info.name) != 0)
+    if (strcmp(peer_info->name, my_info->name) != 0)
         error(-1, EIO, "Bootstrap response gave bad name");
-    my_info.id = peer_info->id;
+    my_info->id = peer_info->id;
 
     // Following 0 or more messages will represent network peers
     while (recv(sock, &in_msg,sizeof(in_msg), 0) > 0) {
@@ -183,7 +191,7 @@ bool broadcast_channel::notify_peers() {
             error(-1, errno, "Could not connect to peer %s", peer->name);
 
         // Construct the outgoing message
-        construct_message(PEER, &out_msg, &my_info, sizeof(my_info));
+        construct_message(PEER, &out_msg, my_info, sizeof(my_info));
 
         // Send!
         if (send(sock, &out_msg, sizeof(out_msg), 0) != sizeof(out_msg))
@@ -262,8 +270,8 @@ void broadcast_channel::accept_connections() {
     memset(&servaddr, 0, sizeof(servaddr));
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-    servaddr.sin_port = my_info.ip.sin_port;
-    if (bind(server_sock, (struct sockaddr *) &servaddr, sizeof(my_info.ip)) < 0)
+    servaddr.sin_port = my_info->ip.sin_port;
+    if (bind(server_sock, (struct sockaddr *) &servaddr, sizeof(my_info->ip)) < 0)
         error(-1, errno, "Could not bind to socket");
 
     listen(server_sock, 10);
@@ -300,7 +308,7 @@ void broadcast_channel::accept_connections() {
                 // Send our READY reply
                 memset(&out_msg, 0, sizeof(out_msg));
                 out_msg.type = READY;
-                out_msg.cli_id = my_info.id;
+                out_msg.cli_id = my_info->id;
                 out_msg.msg_id = msg_counter++;
 
                 if (send(client_sock, &out_msg, sizeof(out_msg), 0) != sizeof(out_msg))
@@ -334,7 +342,7 @@ void broadcast_channel::accept_connections() {
 bool broadcast_channel::join(std::string hostname, int port){
     if (hostname.empty()) {
         // Start new broadcast group
-        my_info.id = 1;
+        my_info->id = 1;
 
     } else {
         // Join an existing broadcast group
@@ -347,10 +355,7 @@ bool broadcast_channel::join(std::string hostname, int port){
     }
 
     // Add myself to the peer list (we create a copy to make cleanup easier)
-    struct client_info *my_info_copy;
-    my_info_copy = (struct client_info *) malloc(sizeof(struct client_info));
-    memcpy(my_info_copy, &my_info, sizeof(my_info));
-    group_set.push_back(my_info_copy);
+    group_set.push_back(my_info);
 
     pthread_t listen_thread;
     pthread_create( &listen_thread, NULL, start_server, (void *)this);

@@ -60,7 +60,7 @@ class broadcast_channel {
 
     private:
         //The client info for this broadcast_channel
-        struct client_info my_info;
+        struct client_info *my_info;
         //The client info for everyone in the broadcast group
         std::vector< struct client_info * > group_set;
         //The list of currently-active message decoders
