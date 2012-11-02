@@ -87,9 +87,6 @@ static int read_port(void){
 
     //parse the port
     port = strtol(lne, NULL, 10);
-    if(port <= INT_MIN || port >= INT_MAX){
-        error(-1, ERANGE, "Unable to read port");
-    }
     if(port < 1 || port > 65535){
         error(-1, EINVAL, "Port must be in range [1, 65535]");
     }
