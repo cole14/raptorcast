@@ -55,7 +55,8 @@ class broadcast_channel {
         //Broadcast a message over this channel
         void broadcast(unsigned char *buf, size_t buf_len);
 
-        void print_peers();
+        //Print the list of known peers at indentation level 'indent' to stdout
+        void print_peers(int indent = 0);
 
     private:
         //The client info for this broadcast_channel

@@ -59,11 +59,12 @@ broadcast_channel::broadcast_channel(std::string name, int port, channel_listene
 
 }
 
-void broadcast_channel::print_peers() {
+void broadcast_channel::print_peers(int indent) {
     struct client_info *peer;
     for (unsigned int i = 0; i < group_set.size(); i++) {
         peer = group_set[i];
-        printf("Peer %d: name %s, ip %s, port %d\n",
+        for(int i = 0; i < indent; i++) printf("%s", "    ");
+        printf("Peer %d: %s -> %s:%d\n",
                 peer->id,
                 peer->name,
                 inet_ntoa(peer->ip.sin_addr),

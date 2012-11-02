@@ -124,30 +124,37 @@ void client::run_cli() {
     int max_line = 256;
     char line[max_line];
 
-    while (1) {
-        printf("Enter command\n");
+    while (0xFULL) {
+        //Print the prompt
+        printf("%s> ", name.c_str());
         memset(line, 0, sizeof(line));
-        while (fgets(line, max_line, stdin) != NULL) {
-            // Eliminate trailing whitespace
-            for (int i = strlen(line)-1; i >=0; i--) {
-                if (isspace(line[i])) line[i] = '\0';
-            }
 
-            if (strlen(line) == 0) continue;
+        //Read the command
+        if(fgets(line, max_line, stdin) == NULL) {
+            error(-1, errno, "Error reading user input");
+        }
 
-            if (strcmp(line, "peers") == 0 || strcmp(line, "p") == 0) {
-                printf("Printing list of peers\n");
-                chan->print_peers();
+        // Eliminate trailing whitespace
+        for (int i = strlen(line)-1; i >=0; i--) {
+            if (isspace(line[i])) line[i] = '\0';
+        }
 
-            } else if (strcmp(line, "quit") == 0 || strcmp(line, "q") == 0) {
-                printf("Quitting\n");
+        //handle the command
+        if (strlen(line) == 0) continue;
 
-            } else if (strcmp(line, "help") == 0 || strcmp(line, "h") == 0) {
-                printf("Commands: [p]eers, [q]uit, [h]elp\n");
+        if (strcmp(line, "peers") == 0 || strcmp(line, "p") == 0) {
+            printf("Known Peers:\n");
+            chan->print_peers(1);
 
-            } else {
-                printf("Invalid command: %s\n", line);
-            }
+        } else if (strcmp(line, "quit") == 0 || strcmp(line, "q") == 0) {
+            printf("Quitting\n");
+            break;
+
+        } else if (strcmp(line, "help") == 0 || strcmp(line, "h") == 0) {
+            printf("Commands: [p]eers, [q]uit, [h]elp\n");
+
+        } else {
+            printf("Invalid command: %s\n", line);
         }
     }
 }
