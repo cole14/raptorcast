@@ -87,8 +87,8 @@ static int read_port(void){
 
     //parse the port
     port = strtol(lne, NULL, 10);
-    if(port < 1 || port > 65535){
-        error(-1, EINVAL, "Port must be in range [1, 65535]");
+    if(port < 1 || port > 65534){
+        error(-1, EINVAL, "Port must be in range [1, 65534]");
     }
 
     return port;
@@ -148,6 +148,7 @@ void client::run_cli() {
 
         } else if (strcmp(line, "quit") == 0 || strcmp(line, "q") == 0) {
             printf("Quitting\n");
+            chan->quit();
             break;
 
         } else if (strcmp(line, "help") == 0 || strcmp(line, "h") == 0) {

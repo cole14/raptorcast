@@ -260,6 +260,7 @@ void broadcast_channel::accept_connections() {
     struct message in_msg, out_msg;
     struct client_info *peer_info;
     struct sockaddr_in servaddr;
+    bool running = true;
 
     // Set up the socket
     if ((server_sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
@@ -276,7 +277,7 @@ void broadcast_channel::accept_connections() {
 
     listen(server_sock, 10);
 
-    while(1) {
+    while (running) {
         fprintf(stdout, "Server waiting...\n");
 
         // Wait for a connection
@@ -317,7 +318,30 @@ void broadcast_channel::accept_connections() {
                 break;
 
             case QUIT:
-                // Not implemented
+                peer_info = (struct client_info *) in_msg.data;
+                fprintf(stdout, "Recieved quit message from %s\n", peer_info->name);
+                if (peer_info->id == my_info->id) {
+                    // Shutdown message from the CLI thread
+                    fprintf(stdout, "Shutting down recieve thread\n");
+                    running = false;
+                    break;
+                }
+
+                int index;
+                for (index = 0; index < (int) group_set.size(); index++) {
+                    if (group_set[index]->id == peer_info->id)
+                        break;
+                }
+
+                if (index < (int) group_set.size()) {
+                    group_set.erase(group_set.begin() + index);
+                } else {
+                    fprintf(stderr, "Recieved quit notice from an unknown peer: "
+                            "Name %s, id %u, ip %s, port %d\n",
+                            peer_info->name, peer_info->id,
+                            inet_ntoa(peer_info->ip.sin_addr),
+                            ntohs(peer_info->ip.sin_port));
+                }
                 break;
 
             case CLIENT_SERVER:
@@ -354,7 +378,7 @@ bool broadcast_channel::join(std::string hostname, int port){
 
     }
 
-    // Add myself to the peer list 
+    // Add myself to the peer list
     group_set.push_back(my_info);
 
     pthread_t listen_thread;
@@ -362,6 +386,42 @@ bool broadcast_channel::join(std::string hostname, int port){
 
     return true;
 }
+
+void broadcast_channel::quit() {
+    int sock;
+    struct client_info *peer;
+    struct message out_msg;
+    fprintf(stdout, "Putting in 2 weeks' notice\n");
+
+    // Notify peers that we're quitting
+    // Note: this will include our listener thread - this is good, because
+    // it provides an easy way to tell it to shut down.
+    for (int i = 0; i < (int)group_set.size(); i++) {
+        peer =  group_set[i];
+        fprintf(stdout, "Notifying peer %s.\n", peer->name);
+
+        // Setup the socket
+        if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+            error(-1, errno, "Could not create bootstrap socket");
+
+        // Open socket
+        if (connect(sock, (struct sockaddr *) &peer->ip,
+                    sizeof(peer->ip)) < 0)
+            error(-1, errno, "Could not connect to peer %s", peer->name);
+
+        // Construct the outgoing message
+        construct_message(QUIT, &out_msg, my_info, sizeof(my_info));
+
+        // Send
+        if (send(sock, &out_msg, sizeof(out_msg), 0) != sizeof(out_msg))
+            error(-1, errno, "Could not send peer notification");
+
+        // Close socket
+        if (close(sock) != 0)
+            error(-1, errno, "Error closing peer socket");
+    }
+}
+
 
 void broadcast_channel::broadcast(unsigned char *buf, size_t buf_len){
 }
