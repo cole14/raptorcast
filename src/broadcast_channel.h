@@ -43,44 +43,53 @@ struct message {
 
 class broadcast_channel {
     public:
-        //Constructor
+        // Constructor
         broadcast_channel(std::string name, int port, channel_listener *lstnr);
 
-        //Default destructor
+        // Default destructor
         virtual ~broadcast_channel(void);
 
-        //Connect to an existing broadcast group
+        // Connect to an existing broadcast group
         bool join(std::string hostname, int port);
 
-        //Broadcast a message over this channel
+        // Broadcast a message over this channel
         void broadcast(unsigned char *buf, size_t buf_len);
 
-        //Print the list of known peers at indentation level 'indent' to stdout
+        // Print the list of known peers at indentation level 'indent' to stdout
         void print_peers(int indent = 0);
 
+        // Notify peers that we're quitting, clean up connections, etc.
+        void quit();
+
     private:
-        //The client info for this broadcast_channel
+        // The client info for this broadcast_channel
         struct client_info *my_info;
-        //The client info for everyone in the broadcast group
+        // The client info for everyone in the broadcast group
         std::vector< struct client_info * > group_set;
-        //The list of currently-active message decoders
+        // The list of currently-active message decoders
         std::vector< Decoder > decoders;
-        //The chunk receiver thread
+        // The chunk receiver thread
         pthread_t receiver_thread;
-        //The application listening on this channel
+        // The application listening on this channel
         channel_listener *listener;
-        //The monotonically increasing unique message id counter for this sender
+        // The monotonically increasing unique message id counter for this sender
         unsigned long msg_counter;
 
+        // Contact a known host and get a list of all peers
         bool get_peer_list(std::string hostname, int port);
+        // Send a list of all peers to a new member
         bool send_peer_list(int client_sock, struct client_info *target);
+        // Tell the list of peers that we exist
         bool notify_peers();
+        // Wait for and handle network requests from other peers
         void accept_connections();
+        // Wrapper func for start_server for the purpose of threadding
         static void *start_server(void *);
 
-        // An id that is not currently in use within the peer set
+        // Get an id that is not currently in use within the peer set
         // Note that this is terrible and presents all sorts of race conditions
         unsigned int get_unused_id();
+        // Put together a message containing the given data
         void construct_message(msg_t type, struct message *dest, const void *src, size_t n);
 };
 
