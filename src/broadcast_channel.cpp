@@ -135,6 +135,7 @@ bool broadcast_channel::get_peer_list(std::string hostname, int port) {
     peer_info = (struct client_info *) in_msg.data;
     if (strcmp(peer_info->name, my_info->name) != 0)
         error(-1, EIO, "Bootstrap response gave bad name");
+    fprintf(stdout, "Got ID %u from bootstrap\n", peer_info->id);
     my_info->id = peer_info->id;
 
     // Following 0 or more messages will represent network peers
@@ -191,7 +192,7 @@ bool broadcast_channel::notify_peers() {
             error(-1, errno, "Could not connect to peer %s", peer->name);
 
         // Construct the outgoing message
-        construct_message(PEER, &out_msg, my_info, sizeof(struct client_info *));
+        construct_message(PEER, &out_msg, my_info, sizeof(struct client_info));
 
         // Send!
         if (send(sock, &out_msg, sizeof(out_msg), 0) != sizeof(out_msg))
@@ -301,8 +302,9 @@ void broadcast_channel::accept_connections() {
                 memcpy(peer_info, &in_msg.data, sizeof(struct client_info));
                 group_set.push_back(peer_info);
 
-                fprintf(stdout, "received peer request!  Name %s, host %s, port %d\n",
+                fprintf(stdout, "received peer request!  Name %s, id %u, host %s, port %d\n",
                         peer_info->name,
+                        peer_info->id,
                         inet_ntoa(peer_info->ip.sin_addr),
                         ntohs(peer_info->ip.sin_port));
 
