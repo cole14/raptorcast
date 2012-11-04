@@ -99,7 +99,7 @@ void broadcast_channel::construct_message(msg_t type, struct message *dest, cons
  */
 bool broadcast_channel::get_peer_list(std::string hostname, int port) {
     int sock;
-    int bytes_recieved;
+    int bytes_received;
     struct addrinfo *strap_h;
     struct sockaddr_in *strap_addr;
     struct message in_msg, out_msg;
@@ -119,7 +119,7 @@ bool broadcast_channel::get_peer_list(std::string hostname, int port) {
         error(-1, errno, "Could not connect to bootstrap socket");
 
     // Construct the outgoing message
-    construct_message(JOIN, &out_msg, my_info, sizeof(my_info));
+    construct_message(JOIN, &out_msg, my_info, sizeof(struct client_info));
 
     // Send!
     if (send(sock, &out_msg, sizeof(out_msg), 0) != sizeof(out_msg))
@@ -127,10 +127,10 @@ bool broadcast_channel::get_peer_list(std::string hostname, int port) {
 
     // Wait for response
     // First message will be info about us as seen by strap
-    if ((bytes_recieved = recv(sock, &in_msg, sizeof(in_msg), 0)) < 0)
-        error(-1, errno, "Could not recieve bootstrap response");
+    if ((bytes_received = recv(sock, &in_msg, sizeof(in_msg), 0)) < 0)
+        error(-1, errno, "Could not receive bootstrap response");
     if (in_msg.type != PEER)
-        error(-1, EIO, "Recieved bad bootstrap response message type");
+        error(-1, EIO, "received bad bootstrap response message type");
 
     peer_info = (struct client_info *) in_msg.data;
     if (strcmp(peer_info->name, my_info->name) != 0)
@@ -163,11 +163,11 @@ bool broadcast_channel::get_peer_list(std::string hostname, int port) {
 /*
  * Send a PEER message containing information about us to everyone on the peer
  * list.  They will respond with a READY, indicating that they have added us to
- * their peer list, and are OK to recieve messages from us.
+ * their peer list, and are OK to receive messages from us.
  */
 bool broadcast_channel::notify_peers() {
     int sock;
-    int bytes_recieved;
+    int bytes_received;
     struct message in_msg, out_msg;
     struct client_info *peer;
 
@@ -191,17 +191,17 @@ bool broadcast_channel::notify_peers() {
             error(-1, errno, "Could not connect to peer %s", peer->name);
 
         // Construct the outgoing message
-        construct_message(PEER, &out_msg, my_info, sizeof(my_info));
+        construct_message(PEER, &out_msg, my_info, sizeof(struct client_info *));
 
         // Send!
         if (send(sock, &out_msg, sizeof(out_msg), 0) != sizeof(out_msg))
             error(-1, errno, "Could not send peer notification");
 
         // Get reply
-        if ((bytes_recieved = recv(sock, &in_msg, sizeof(in_msg), 0)) < 0)
-            error(-1, errno, "Could not recieve peer response");
+        if ((bytes_received = recv(sock, &in_msg, sizeof(in_msg), 0)) < 0)
+            error(-1, errno, "Could not receive peer response");
         if (in_msg.type != READY)
-            error(-1, errno, "Recieved bad peer response message type");
+            error(-1, errno, "received bad peer response message type");
 
         // Close socket
         if (close(sock) != 0)
@@ -256,7 +256,7 @@ void *broadcast_channel::start_server(void *args) {
 
 void broadcast_channel::accept_connections() {
     int server_sock, client_sock;
-    int bytes_recieved;
+    int bytes_received;
     struct message in_msg, out_msg;
     struct client_info *peer_info;
     struct sockaddr_in servaddr;
@@ -287,8 +287,8 @@ void broadcast_channel::accept_connections() {
         fprintf(stdout, "accepted client!\n");
 
         // Handle the request
-        if ((bytes_recieved = recv(client_sock, &in_msg, sizeof(in_msg), 0)) < 0)
-            error(-1, errno, "Could not recieve client message");
+        if ((bytes_received = recv(client_sock, &in_msg, sizeof(in_msg), 0)) < 0)
+            error(-1, errno, "Could not receive client message");
 
         switch (in_msg.type) {
             case JOIN :
@@ -301,7 +301,7 @@ void broadcast_channel::accept_connections() {
                 memcpy(peer_info, &in_msg.data, sizeof(struct client_info));
                 group_set.push_back(peer_info);
 
-                fprintf(stdout, "Recieved peer request!  Name %s, host %s, port %d\n",
+                fprintf(stdout, "received peer request!  Name %s, host %s, port %d\n",
                         peer_info->name,
                         inet_ntoa(peer_info->ip.sin_addr),
                         ntohs(peer_info->ip.sin_port));
@@ -319,10 +319,10 @@ void broadcast_channel::accept_connections() {
 
             case QUIT:
                 peer_info = (struct client_info *) in_msg.data;
-                fprintf(stdout, "Recieved quit message from %s\n", peer_info->name);
+                fprintf(stdout, "received quit message from %s\n", peer_info->name);
                 if (peer_info->id == my_info->id) {
                     // Shutdown message from the CLI thread
-                    fprintf(stdout, "Shutting down recieve thread\n");
+                    fprintf(stdout, "Shutting down receive thread\n");
                     running = false;
                     break;
                 }
@@ -336,7 +336,7 @@ void broadcast_channel::accept_connections() {
                 if (index < (int) group_set.size()) {
                     group_set.erase(group_set.begin() + index);
                 } else {
-                    fprintf(stderr, "Recieved quit notice from an unknown peer: "
+                    fprintf(stderr, "received quit notice from an unknown peer: "
                             "Name %s, id %u, ip %s, port %d\n",
                             peer_info->name, peer_info->id,
                             inet_ntoa(peer_info->ip.sin_addr),
@@ -410,7 +410,7 @@ void broadcast_channel::quit() {
             error(-1, errno, "Could not connect to peer %s", peer->name);
 
         // Construct the outgoing message
-        construct_message(QUIT, &out_msg, my_info, sizeof(my_info));
+        construct_message(QUIT, &out_msg, my_info, sizeof(struct client_info));
 
         // Send
         if (send(sock, &out_msg, sizeof(out_msg), 0) != sizeof(out_msg))
@@ -420,6 +420,8 @@ void broadcast_channel::quit() {
         if (close(sock) != 0)
             error(-1, errno, "Error closing peer socket");
     }
+
+    pthread_join(receiver_thread, NULL);
 }
 
 
