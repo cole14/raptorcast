@@ -7,7 +7,7 @@ SRCDIR=./src
 #Compilation Vars
 CC=g++
 CFLAGS=-g -Wall -Werror
-LDFLAGS=-lpthread
+LDFLAGS=-lpthread -pthread
 
 #List of source files 
 SRC_FILES=client.cpp broadcast_channel.cpp channel_listener.cpp
