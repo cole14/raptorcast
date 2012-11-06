@@ -27,7 +27,7 @@ broadcast_channel::~broadcast_channel(void)
 }
 
 //Default constructor - initialize the port member
-broadcast_channel::broadcast_channel(std::string name, int port, channel_listener *lstnr){
+broadcast_channel::broadcast_channel(std::string name, std::string port, channel_listener *lstnr){
     //Init members
     listener = lstnr;
     msg_counter = 0;
@@ -50,11 +50,10 @@ broadcast_channel::broadcast_channel(std::string name, int port, channel_listene
 
     //Set the client info ip
     struct addrinfo *local_h;
-    if(0 != getaddrinfo(local_h_name, NULL, NULL, &local_h)){
+    if(0 != getaddrinfo(local_h_name, port.c_str(), NULL, &local_h)){
         error(-1, h_errno, "Unable to get localhost host information");
     }
     my_info->ip = *((sockaddr_in *)local_h->ai_addr);
-    my_info->ip.sin_port = htons(port);
 
     //delete the local_h linked list
     freeaddrinfo(local_h);

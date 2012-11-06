@@ -6,7 +6,7 @@
 
 class client : public channel_listener {
     public:
-        client(std::string name, int port);
+        client(std::string name, std::string port);
         ~client();
 
         void receive(unsigned char *buf, size_t buf_len);

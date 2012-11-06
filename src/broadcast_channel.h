@@ -44,7 +44,7 @@ struct message {
 class broadcast_channel {
     public:
         // Constructor
-        broadcast_channel(std::string name, int port, channel_listener *lstnr);
+        broadcast_channel(std::string name, std::string port, channel_listener *lstnr);
 
         // Default destructor
         virtual ~broadcast_channel(void);

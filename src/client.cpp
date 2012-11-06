@@ -25,7 +25,7 @@ static void usage(void){
  * Constructor. Initializes the broadcast_channel with this client's
  * self-identifying information.
  */
-client::client(std::string name, int port)
+client::client(std::string name, std::string port)
 :chan(NULL), name(name)
 {
     chan = new broadcast_channel(name, port, this);
@@ -167,13 +167,8 @@ int main(int argc, char *argv[]){
         exit(EINVAL);
     }
 
-    //Parse the client name
-    std::string name(argv[1]);
-    //Parse the port number
-    int port = (int)strtol(argv[2], NULL, 10);
-
     //Initialize the client
-    client c(name, port);
+    client c(argv[1], argv[2]);
 
     // Connect to the group
     c.connect();
