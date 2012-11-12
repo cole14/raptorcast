@@ -120,28 +120,78 @@ void client::connect(){
     fprintf(stdout, "Successfully connected!\n");
 }
 
-void client::run_cli() {
+msg_t client::get_alg () {
     int max_line = 256;
     char line[max_line];
 
     while (0xFULL) {
+        printf("Which algorithm?\n");
+        printf("client-[s]erver, [t]raditional, [c]ooperatvie, [r]aptor, [b]ack\n");
+
         //Print the prompt
-        printf("%s> ", name.c_str());
-        memset(line, 0, sizeof(line));
+        do {
+            printf("%s> ", name.c_str());
+            memset(line, 0, sizeof(line));
 
-        //Read the command
-        if(fgets(line, max_line, stdin) == NULL) {
-            error(-1, errno, "Error reading user input");
-        }
+            //Read the command
+            if(fgets(line, max_line, stdin) == NULL) {
+                error(-1, errno, "Error reading user input");
+            }
 
-        // Eliminate trailing whitespace
-        for (int i = strlen(line)-1; i >=0; i--) {
-            if (isspace(line[i])) line[i] = '\0';
-        }
+            // Eliminate trailing whitespace
+            for (int i = strlen(line)-1; i >=0; i--) {
+                if (isspace(line[i])) line[i] = '\0';
+            }
+        } while (strlen(line) == 0);
 
         //handle the command
-        if (strlen(line) == 0) continue;
+        if (strcmp(line, "client-server") == 0 || strcmp(line, "s") == 0) {
+            return CLIENT_SERVER;
 
+        } else if (strcmp(line, "traditional") == 0 || strcmp(line, "t") == 0) {
+            return TRAD;
+
+        } else if (strcmp(line, "cooperative") == 0 || strcmp(line, "c") == 0) {
+            return COOP;
+
+        } else if (strcmp(line, "raptor") == 0 || strcmp(line, "r") == 0) {
+            return RAPTOR;
+
+        } else if (strcmp(line, "back") == 0 || strcmp(line, "b") == 0) {
+            return QUIT;
+
+        } else {
+            printf("Couldn't interpret response: %s\n", line);
+            continue;
+        }
+    }
+}
+
+
+void client::run_cli() {
+    int max_line = 256;
+    char line[max_line];
+    msg_t algorithm;
+
+    while (0xFULL) {
+        do {
+            //Print the prompt
+            printf("%s> ", name.c_str());
+            memset(line, 0, sizeof(line));
+
+            //Read the command
+            if(fgets(line, max_line, stdin) == NULL) {
+                error(-1, errno, "Error reading user input");
+            }
+
+            // Eliminate trailing whitespace
+            for (int i = strlen(line)-1; i >=0; i--) {
+                if (isspace(line[i])) line[i] = '\0';
+            }
+
+        } while (strlen(line) == 0);
+
+        //handle the command
         if (strcmp(line, "peers") == 0 || strcmp(line, "p") == 0) {
             printf("Known Peers:\n");
             chan->print_peers(1);
@@ -152,7 +202,17 @@ void client::run_cli() {
             break;
 
         } else if (strcmp(line, "help") == 0 || strcmp(line, "h") == 0) {
-            printf("Commands: [p]eers, [q]uit, [h]elp\n");
+            printf("Commands: send [t]ext, send [f]ile, [p]eers, [q]uit, [h]elp\n");
+
+        } else if (strcmp(line, "send text") == 0 || strcmp(line, "t") == 0) {
+            algorithm = get_alg();
+            if (algorithm == QUIT) continue;
+            printf("Sending text...\n");
+
+        } else if (strcmp(line, "send file") == 0 || strcmp(line, "f") == 0) {
+            algorithm = get_alg();
+            if (algorithm == QUIT) continue;
+            printf("Sending file...\n");
 
         } else {
             printf("Invalid command: %s\n", line);

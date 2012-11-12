@@ -16,6 +16,8 @@ class client : public channel_listener {
     private:
         broadcast_channel *chan;
         std::string name;
+
+        msg_t get_alg();
 };
 
 #endif /* __CLIENT_H */
