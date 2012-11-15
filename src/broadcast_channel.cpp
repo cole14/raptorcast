@@ -425,7 +425,53 @@ void broadcast_channel::quit() {
     pthread_join(receiver_thread, NULL);
 }
 
+Encoder *broadcast_channel::get_encoder(msg_t algo){
+    switch(algo){
+        default: return NULL;
+    }
+}
 
-void broadcast_channel::broadcast(unsigned char *buf, size_t buf_len){
+void broadcast_channel::broadcast(msg_t algo, unsigned char *buf, size_t buf_len){
+    int sock;
+    struct client_info *peer;
+
+    // Get the msg encoder for the given algorithm type
+    Encoder *msg_enc = get_encoder(algo);
+    if(msg_enc == NULL)
+        error(-1, 0, "Unable to get encoder for algorithm type %d", (int)algo);
+
+    size_t chunk_size = PACKET_LEN;
+
+    // Set up the encoder with the message data and chunk size
+    msg_enc->init(buf, buf_len, chunk_size);
+
+    // Continually generate chunks until the decoder is out of chunks
+    unsigned char *chunk = NULL;
+    struct message out_msg;
+    while(NULL != (chunk = msg_enc->generate_chunk())){
+        for (int i = 0; i < (int)group_set.size(); i++) {
+            peer =  group_set[i];
+
+            // Setup the socket
+            if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+                error(-1, errno, "Could not create bootstrap socket");
+
+            // Open socket
+            if (connect(sock, (struct sockaddr *) &peer->ip,
+                        sizeof(peer->ip)) < 0)
+                error(-1, errno, "Could not connect to peer %s", peer->name);
+
+            // Build the message around the chunk
+            construct_message(algo, &out_msg, chunk, chunk_size);
+
+            // Send the message
+            if (send(sock, &out_msg, sizeof(out_msg), 0) != sizeof(out_msg))
+                error(-1, errno, "Could not send peer notification");
+
+            // Close socket
+            if (close(sock) != 0)
+                error(-1, errno, "Error closing peer socket");
+        }
+    }
 }
 

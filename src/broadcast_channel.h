@@ -53,7 +53,7 @@ class broadcast_channel {
         bool join(std::string hostname, int port);
 
         // Broadcast a message over this channel
-        void broadcast(unsigned char *buf, size_t buf_len);
+        void broadcast(msg_t algo, unsigned char *buf, size_t buf_len);
 
         // Print the list of known peers at indentation level 'indent' to stdout
         void print_peers(int indent = 0);
@@ -91,6 +91,8 @@ class broadcast_channel {
         unsigned int get_unused_id();
         // Put together a message containing the given data
         void construct_message(msg_t type, struct message *dest, const void *src, size_t n);
+        // Get an encoder object for message type 'algo'
+        Encoder *get_encoder(msg_t algo);
 };
 
 #endif /* __BROADCAST_CHANNEL_H */
