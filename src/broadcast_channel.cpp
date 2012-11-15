@@ -12,6 +12,8 @@
 #include <unistd.h>
 
 #include "broadcast_channel.h"
+#include "client_server_encoder.h"
+#include "client_server_decoder.h"
 
 //gethostbyname error num
 extern int h_errno;
@@ -261,6 +263,7 @@ void broadcast_channel::accept_connections() {
     struct client_info *peer_info;
     struct sockaddr_in servaddr;
     bool running = true;
+    Decoder *msg_dec = NULL;
 
     // Set up the socket
     if ((server_sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
@@ -346,11 +349,25 @@ void broadcast_channel::accept_connections() {
                 break;
 
             case CLIENT_SERVER:
+                if(decoders.find(in_msg.msg_id) == decoders.end()){
+                    msg_dec = new client_server_Decoder();
+                    decoders[in_msg.msg_id] = msg_dec;
+                }
+                msg_dec = decoders[in_msg.msg_id];
+
+                msg_dec->add_chunk(in_msg.data, in_msg.data_len);
+
+                if(msg_dec->is_done()){
+                    listener->receive(msg_dec->get_message(), msg_dec->get_len());
+                    decoders.erase(decoders.find(in_msg.msg_id));
+                }
+
+                break;
             case TRAD:
             case COOP:
             case RAPTOR:
                 // Not implemented
-                break;
+                fprintf(stderr, "Oh Noes! We got a message we don't know what to do with...\n");
 
             default:
                 break;
@@ -427,6 +444,7 @@ void broadcast_channel::quit() {
 
 Encoder *broadcast_channel::get_encoder(msg_t algo){
     switch(algo){
+        case CLIENT_SERVER: return new client_server_Encoder();
         default: return NULL;
     }
 }
@@ -445,10 +463,20 @@ void broadcast_channel::broadcast(msg_t algo, unsigned char *buf, size_t buf_len
     // Set up the encoder with the message data and chunk size
     msg_enc->init(buf, buf_len, chunk_size);
 
+    // Increment the message id counter 
+    msg_counter++;
+
     // Continually generate chunks until the decoder is out of chunks
     unsigned char *chunk = NULL;
     struct message out_msg;
     while(NULL != (chunk = msg_enc->generate_chunk())){
+        // Build the message around the chunk
+        out_msg.type = algo;
+        out_msg.cli_id = my_info->id;
+        out_msg.msg_id = msg_counter;//we don't want a new msgid for each chunk
+        out_msg.data_len = chunk_size;
+        memcpy(&out_msg.data, chunk, chunk_size);
+
         for (int i = 0; i < (int)group_set.size(); i++) {
             peer =  group_set[i];
 
@@ -461,9 +489,6 @@ void broadcast_channel::broadcast(msg_t algo, unsigned char *buf, size_t buf_len
                         sizeof(peer->ip)) < 0)
                 error(-1, errno, "Could not connect to peer %s", peer->name);
 
-            // Build the message around the chunk
-            construct_message(algo, &out_msg, chunk, chunk_size);
-
             // Send the message
             if (send(sock, &out_msg, sizeof(out_msg), 0) != sizeof(out_msg))
                 error(-1, errno, "Could not send peer notification");
@@ -472,6 +497,11 @@ void broadcast_channel::broadcast(msg_t algo, unsigned char *buf, size_t buf_len
             if (close(sock) != 0)
                 error(-1, errno, "Error closing peer socket");
         }
+
+        //free the chunk memory
+        free(chunk);
     }
+
+    delete msg_enc;
 }
 

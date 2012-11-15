@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <string>
 #include <vector>
+#include <map>
 
 #include "channel_listener.h"
 #include "decoder.h"
@@ -66,8 +67,8 @@ class broadcast_channel {
         struct client_info *my_info;
         // The client info for everyone in the broadcast group
         std::vector< struct client_info * > group_set;
-        // The list of currently-active message decoders
-        std::vector< Decoder > decoders;
+        // Association between message_ids and their active decoders
+        std::map< unsigned long, Decoder * > decoders;
         // The chunk receiver thread
         pthread_t receiver_thread;
         // The application listening on this channel
