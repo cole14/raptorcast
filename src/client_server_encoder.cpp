@@ -29,7 +29,7 @@ unsigned char * client_server_encoder::generate_chunk(){
     size_t len = data_len - data_pos;
     if(len > chunk_len) len = chunk_len;
 
-    if(data_len == 0) return NULL;
+    if(len == 0) return NULL;
 
     chunk = (unsigned char *)calloc(len, sizeof(unsigned char));
     memcpy(chunk, data + data_pos, len);

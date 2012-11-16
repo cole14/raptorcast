@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include "client.h"
 
@@ -210,9 +211,40 @@ void client::run_cli() {
             printf("Sending text...\n");
 
         } else if (strcmp(line, "send file") == 0 || strcmp(line, "f") == 0) {
+            //Get the desired broadcast algorithm
             algorithm = get_alg();
             if (algorithm == QUIT) continue;
+
+            //Get the filename
+            printf("Input Filename: ");
+            if(fgets(line, max_line, stdin) == NULL) {
+                error(-1, errno, "Error reading user input");
+            }
+            while(isspace(line[strlen(line)-1]))
+                line[strlen(line)-1] = '\0';
+
+            //Open the file
+            FILE *fp = fopen(line, "r");
+            if(fp == NULL){
+                error(-1, errno, "Error opening '%s'", line);
+            }
+
+            //Get the file length
+            struct stat fp_stat;
+            if(-1 == fstat(fileno(fp), &fp_stat)){
+                error(-1, errno, "Error stating '%s'", line);
+            }
+
+            //Read the file into an in-memory buffer
+            size_t siz = (size_t)fp_stat.st_size;
+            unsigned char *file_contents = (unsigned char *)malloc(siz * sizeof(unsigned char));
+            if(siz != fread(file_contents, sizeof(unsigned char), siz, fp)){
+                error(-1, errno, "Error reading file");
+            }
+
+            //Broadcast the file
             printf("Sending file...\n");
+            chan->broadcast(algorithm, file_contents, (size_t)siz);
 
         } else {
             printf("Invalid command: %s\n", line);

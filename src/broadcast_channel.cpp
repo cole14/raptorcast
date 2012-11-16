@@ -19,6 +19,15 @@
 extern int h_errno;
 extern int errno;
 
+void dump_buf(unsigned char *buf, size_t len){
+    for(int i = 0; i < (int)len; i++){
+        fprintf(stdout, "%02X ", buf[i]);
+        if((i+1) % 16 == 0)
+            fprintf(stdout, "\n");
+    }
+    fprintf(stdout, "\n");
+}
+
 //Default destructor - nothing to do
 broadcast_channel::~broadcast_channel(void)
 {
@@ -349,6 +358,7 @@ void broadcast_channel::accept_connections() {
                 break;
 
             case CLIENT_SERVER:
+                fprintf(stdout, "received CLIENT_SERVER message\n");
                 if(decoders.find(in_msg.msg_id) == decoders.end()){
                     msg_dec = new client_server_decoder();
                     decoders[in_msg.msg_id] = msg_dec;
@@ -356,6 +366,8 @@ void broadcast_channel::accept_connections() {
                 msg_dec = decoders[in_msg.msg_id];
 
                 msg_dec->add_chunk(in_msg.data, in_msg.data_len);
+
+                dump_buf(in_msg.data, in_msg.data_len);
 
                 if(msg_dec->is_done()){
                     listener->receive(msg_dec->get_message(), msg_dec->get_len());
@@ -379,7 +391,6 @@ void broadcast_channel::accept_connections() {
 
     }
 }
-
 
 bool broadcast_channel::join(std::string hostname, int port){
     if (hostname.empty()) {
@@ -475,10 +486,13 @@ void broadcast_channel::broadcast(msg_t algo, unsigned char *buf, size_t buf_len
         out_msg.cli_id = my_info->id;
         out_msg.msg_id = msg_counter;//we don't want a new msgid for each chunk
         out_msg.data_len = chunk_size;
-        memcpy(&out_msg.data, chunk, chunk_size);
+        memcpy(&(out_msg.data), chunk, chunk_size);
 
         for (int i = 0; i < (int)group_set.size(); i++) {
             peer =  group_set[i];
+
+            //Don't broadcast to yourself
+            if(peer->id == my_info->id) continue;
 
             // Setup the socket
             if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
