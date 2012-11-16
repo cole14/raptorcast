@@ -4,6 +4,8 @@
 #include "client_server_decoder.h"
 
 client_server_decoder::client_server_decoder()
+:data(NULL),
+data_len(0)
 { }
 
 void client_server_decoder::add_chunk (unsigned char * d, size_t len){
