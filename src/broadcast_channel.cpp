@@ -263,7 +263,7 @@ void broadcast_channel::accept_connections() {
     struct client_info *peer_info;
     struct sockaddr_in servaddr;
     bool running = true;
-    Decoder *msg_dec = NULL;
+    decoder *msg_dec = NULL;
 
     // Set up the socket
     if ((server_sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
@@ -350,7 +350,7 @@ void broadcast_channel::accept_connections() {
 
             case CLIENT_SERVER:
                 if(decoders.find(in_msg.msg_id) == decoders.end()){
-                    msg_dec = new client_server_Decoder();
+                    msg_dec = new client_server_decoder();
                     decoders[in_msg.msg_id] = msg_dec;
                 }
                 msg_dec = decoders[in_msg.msg_id];
@@ -442,9 +442,9 @@ void broadcast_channel::quit() {
     pthread_join(receiver_thread, NULL);
 }
 
-Encoder *broadcast_channel::get_encoder(msg_t algo){
+encoder *broadcast_channel::get_encoder(msg_t algo){
     switch(algo){
-        case CLIENT_SERVER: return new client_server_Encoder();
+        case CLIENT_SERVER: return new client_server_encoder();
         default: return NULL;
     }
 }
@@ -454,7 +454,7 @@ void broadcast_channel::broadcast(msg_t algo, unsigned char *buf, size_t buf_len
     struct client_info *peer;
 
     // Get the msg encoder for the given algorithm type
-    Encoder *msg_enc = get_encoder(algo);
+    encoder *msg_enc = get_encoder(algo);
     if(msg_enc == NULL)
         error(-1, 0, "Unable to get encoder for algorithm type %d", (int)algo);
 

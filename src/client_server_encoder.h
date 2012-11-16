@@ -3,10 +3,10 @@
 
 #include "encoder.h"
 
-class client_server_Encoder : public Encoder {
+class client_server_encoder : public encoder {
     public:
-        client_server_Encoder();
-        virtual ~client_server_Encoder() { }
+        client_server_encoder();
+        virtual ~client_server_encoder() { }
         unsigned char * generate_chunk();
         void init(unsigned char *data, size_t data_len, size_t chunk_len);
 

@@ -68,7 +68,7 @@ class broadcast_channel {
         // The client info for everyone in the broadcast group
         std::vector< struct client_info * > group_set;
         // Association between message_ids and their active decoders
-        std::map< unsigned long, Decoder * > decoders;
+        std::map< unsigned long, decoder * > decoders;
         // The chunk receiver thread
         pthread_t receiver_thread;
         // The application listening on this channel
@@ -93,7 +93,7 @@ class broadcast_channel {
         // Put together a message containing the given data
         void construct_message(msg_t type, struct message *dest, const void *src, size_t n);
         // Get an encoder object for message type 'algo'
-        Encoder *get_encoder(msg_t algo);
+        encoder *get_encoder(msg_t algo);
 };
 
 #endif /* __BROADCAST_CHANNEL_H */

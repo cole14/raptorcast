@@ -5,10 +5,10 @@
 
 #include "decoder.h"
 
-class client_server_Decoder : public Decoder {
+class client_server_decoder : public decoder {
     public:
-        client_server_Decoder();
-        virtual ~client_server_Decoder() { }
+        client_server_decoder();
+        virtual ~client_server_decoder() { }
         void add_chunk (unsigned char * data, size_t len);
         bool is_done ();
         unsigned char * get_message ();
