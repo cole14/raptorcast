@@ -8,13 +8,15 @@ class client_server_encoder : public encoder {
         client_server_encoder();
         virtual ~client_server_encoder() { }
         unsigned char * generate_chunk();
-        void init(unsigned char *data, size_t data_len, size_t chunk_len);
+        void init(unsigned char *data, size_t data_len, size_t chunk_len, size_t num_peers);
+        void next_stream();
 
     private:
         unsigned char *data;
         size_t data_pos;
         size_t data_len;
         size_t chunk_len;
+        size_t num_peers;
 };
 
 #endif /* __CLIENT_SERVER_ENCODER_H */

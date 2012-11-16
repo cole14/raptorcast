@@ -16,6 +16,7 @@ class client_server_decoder : public decoder {
     private:
         unsigned char *data;
         size_t data_len;
+        bool done;
 };
 
 #endif /* __CLIENT_SERVER_DECODER_H */

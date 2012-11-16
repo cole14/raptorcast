@@ -5,17 +5,22 @@
 
 client_server_decoder::client_server_decoder()
 :data(NULL),
-data_len(0)
+data_len(0),
+done(false)
 { }
 
 void client_server_decoder::add_chunk (unsigned char * d, size_t len){
+    if (len == 0) {
+        done = true;
+        return;
+    }
     data = (unsigned char *)realloc(data, data_len + len);
     memcpy(data + data_len, d, len);
+    data_len += len;
 }
 
 bool client_server_decoder::is_done (){
-    //TODO: Figure out how to do this...
-    return false;
+    return done;
 }
 
 unsigned char * client_server_decoder::get_message (){

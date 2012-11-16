@@ -96,8 +96,12 @@ void broadcast_channel::construct_message(msg_t type, struct message *dest, cons
     dest->type = type;
     dest->cli_id = my_info->id;
     dest->msg_id = msg_counter++;
-    dest->data_len = n;
-    memcpy(&dest->data, src, n);
+    if (src != NULL) {
+        dest->data_len = n;
+        memcpy(&dest->data, src, n);
+    } else {
+        dest->data_len = 0;
+    }
 }
 
 /*
@@ -365,9 +369,21 @@ void broadcast_channel::accept_connections() {
                 }
                 msg_dec = decoders[in_msg.msg_id];
 
+                // Add the chunk we just got
                 msg_dec->add_chunk(in_msg.data, in_msg.data_len);
-
                 dump_buf(in_msg.data, in_msg.data_len);
+
+                // Keep reading chunks and adding them until the bcast is done
+                while (in_msg.data_len != 0) {
+                    if ((bytes_received = recv(client_sock, &in_msg, sizeof(in_msg), 0)) < 0)
+                        error(-1, errno, "Could not receive client message");
+                    if (in_msg.type != CLIENT_SERVER)
+                        error(-1, EIO, "Inconsistant message type %d", in_msg.type);
+
+                    msg_dec->add_chunk(in_msg.data, in_msg.data_len);
+                    fprintf(stdout, "dumping buf\n");
+                    dump_buf(in_msg.data, in_msg.data_len);
+                }
 
                 if(msg_dec->is_done()){
                     listener->receive(msg_dec->get_message(), msg_dec->get_len());
@@ -472,48 +488,63 @@ void broadcast_channel::broadcast(msg_t algo, unsigned char *buf, size_t buf_len
     size_t chunk_size = PACKET_LEN;
 
     // Set up the encoder with the message data and chunk size
-    msg_enc->init(buf, buf_len, chunk_size);
+    msg_enc->init(buf, buf_len, chunk_size, group_set.size()-1);
 
-    // Increment the message id counter 
+    // Increment the message id counter
     msg_counter++;
 
     // Continually generate chunks until the decoder is out of chunks
     unsigned char *chunk = NULL;
     struct message out_msg;
-    while(NULL != (chunk = msg_enc->generate_chunk())){
-        // Build the message around the chunk
-        out_msg.type = algo;
-        out_msg.cli_id = my_info->id;
-        out_msg.msg_id = msg_counter;//we don't want a new msgid for each chunk
-        out_msg.data_len = chunk_size;
-        memcpy(&(out_msg.data), chunk, chunk_size);
+    for (int i = 0; i < (int)group_set.size(); i++) {
+        peer =  group_set[i];
 
-        for (int i = 0; i < (int)group_set.size(); i++) {
-            peer =  group_set[i];
+        //Don't broadcast to yourself
+        if(peer->id == my_info->id) continue;
 
-            //Don't broadcast to yourself
-            if(peer->id == my_info->id) continue;
+        // Setup the socket
+        if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+            error(-1, errno, "Could not create bootstrap socket");
 
-            // Setup the socket
-            if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-                error(-1, errno, "Could not create bootstrap socket");
+        // Open socket
+        if (connect(sock, (struct sockaddr *) &peer->ip,
+                    sizeof(peer->ip)) < 0)
+            error(-1, errno, "Could not connect to peer %s", peer->name);
 
-            // Open socket
-            if (connect(sock, (struct sockaddr *) &peer->ip,
-                        sizeof(peer->ip)) < 0)
-                error(-1, errno, "Could not connect to peer %s", peer->name);
+        while(NULL != (chunk = msg_enc->generate_chunk())){
+            // Build the message around the chunk
+            out_msg.type = algo;
+            out_msg.cli_id = my_info->id;
+            out_msg.msg_id = msg_counter;//we don't want a new msgid for each chunk
+            out_msg.data_len = chunk_size;
+            memset(&out_msg.data, 0, PACKET_LEN);
+            memcpy(&(out_msg.data), chunk, chunk_size);
 
             // Send the message
             if (send(sock, &out_msg, sizeof(out_msg), 0) != sizeof(out_msg))
                 error(-1, errno, "Could not send peer notification");
 
-            // Close socket
-            if (close(sock) != 0)
-                error(-1, errno, "Error closing peer socket");
+            //free the chunk memory
+            free(chunk);
         }
 
-        //free the chunk memory
-        free(chunk);
+        // Send the final, empty chunk (to let the peer know this cast is finished)
+        out_msg.type = algo;
+        out_msg.cli_id = my_info->id;
+        out_msg.msg_id = msg_counter;//we don't want a new msgid for each chunk
+        out_msg.data_len = 0;
+        memset(&out_msg.data, 0, PACKET_LEN);
+
+        // Send the message
+        if (send(sock, &out_msg, sizeof(out_msg), 0) != sizeof(out_msg))
+            error(-1, errno, "Could not send peer notification");
+
+        // Close socket
+        if (close(sock) != 0)
+            error(-1, errno, "Error closing peer socket");
+
+        // Reset the encoder for the next peer
+        msg_enc->next_stream();
     }
 
     delete msg_enc;

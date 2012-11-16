@@ -37,7 +37,7 @@ enum msg_t {
 struct message {
     msg_t type;
     unsigned int cli_id;
-    unsigned long msg_id;
+    unsigned int msg_id;
     int data_len;
     unsigned char data[PACKET_LEN];
 };
