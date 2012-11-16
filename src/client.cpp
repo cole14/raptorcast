@@ -27,7 +27,7 @@ static void usage(void){
  * self-identifying information.
  */
 client::client(std::string name, std::string port)
-:chan(NULL), name(name)
+:line_buf(NULL), line_buf_len(0), chan(NULL), name(name)
 {
     chan = new broadcast_channel(name, port, this);
 }
@@ -36,6 +36,7 @@ client::client(std::string name, std::string port)
  * Destructor. Destroys the broadcast_channel.
  */
 client::~client(){
+    free(line_buf);
     delete chan;
 }
 
@@ -52,42 +53,50 @@ void client::receive(unsigned char *buf, size_t buf_len){
     fprintf(stdout, "\n");
 }
 
-/*
- * Reads a hostname from stdin. Trims off the trailing newline.
- */
-static std::string read_hostname(void){
-    size_t n = BUFSIZ;
-    char lne[n];
+char *client::read_stripped_line(){
     ssize_t len = 0;
 
     //Read the line
-    if(NULL == fgets(lne, n, stdin)){
-        error(-1, errno, "Unable to read hostname");
+    if(-1 == (len = getline(&line_buf, &line_buf_len, stdin))){
+        return NULL;
     }
 
     //Get rid of the newline terminator
-    len = strlen(lne) - 1;
-    while(lne[len] == '\r' || lne[len] == '\n')
-        lne[len--] = '\0';
+    len = strlen(line_buf) - 1;
+    while(isspace(line_buf[len]))
+        line_buf[len--] = '\0';
 
-    return std::string(lne);
+    return line_buf;
+}
+
+/*
+ * Reads a hostname from stdin. Trims off the trailing newline.
+ */
+std::string client::read_hostname(void){
+    //Read the line
+    char *line = read_stripped_line();
+    if(line == NULL){
+        error(-1, errno, "Unable to read hostname");
+    }
+
+    //Construct the return string
+    return std::string(line);
 }
 
 /*
  * Reads a port from stdin. Checks to make sure it's in the valid range for a port.
  */
-static int read_port(void){
+int client::read_port(void){
     long port = 0;
-    size_t n = 128;
-    char lne[n];
 
     //Read the line
-    if(NULL == fgets(lne, n, stdin)){
-        error(-1, errno, "Unable to read hostname");
+    char *line = read_stripped_line();
+    if(line == NULL){
+        error(-1, errno, "Unable to read port");
     }
 
     //parse the port
-    port = strtol(lne, NULL, 10);
+    port = strtol(line, NULL, 10);
     if(port < 1 || port > 65534){
         error(-1, EINVAL, "Port must be in range [1, 65534]");
     }
@@ -122,8 +131,7 @@ void client::connect(){
 }
 
 msg_t client::get_alg () {
-    int max_line = 256;
-    char line[max_line];
+    char *line;
 
     while (0xFULL) {
         printf("Which algorithm?\n");
@@ -132,16 +140,10 @@ msg_t client::get_alg () {
         //Print the prompt
         do {
             printf("%s> ", name.c_str());
-            memset(line, 0, sizeof(line));
 
             //Read the command
-            if(fgets(line, max_line, stdin) == NULL) {
+            if(NULL == (line = read_stripped_line())) {
                 error(-1, errno, "Error reading user input");
-            }
-
-            // Eliminate trailing whitespace
-            for (int i = strlen(line)-1; i >=0; i--) {
-                if (isspace(line[i])) line[i] = '\0';
             }
         } while (strlen(line) == 0);
 
@@ -170,24 +172,17 @@ msg_t client::get_alg () {
 
 
 void client::run_cli() {
-    int max_line = 256;
-    char line[max_line];
+    char *line;
     msg_t algorithm;
 
     while (0xFULL) {
         do {
             //Print the prompt
             printf("%s> ", name.c_str());
-            memset(line, 0, sizeof(line));
 
             //Read the command
-            if(fgets(line, max_line, stdin) == NULL) {
+            if(NULL == (line = read_stripped_line())) {
                 error(-1, errno, "Error reading user input");
-            }
-
-            // Eliminate trailing whitespace
-            for (int i = strlen(line)-1; i >=0; i--) {
-                if (isspace(line[i])) line[i] = '\0';
             }
 
         } while (strlen(line) == 0);
@@ -216,12 +211,10 @@ void client::run_cli() {
             if (algorithm == QUIT) continue;
 
             //Get the filename
-            printf("Input Filename: ");
-            if(fgets(line, max_line, stdin) == NULL) {
+            printf("Which File?\n");
+            if(NULL == (line = read_stripped_line())) {
                 error(-1, errno, "Error reading user input");
             }
-            while(isspace(line[strlen(line)-1]))
-                line[strlen(line)-1] = '\0';
 
             //Open the file
             FILE *fp = fopen(line, "r");
