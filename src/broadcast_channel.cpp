@@ -485,15 +485,14 @@ void broadcast_channel::broadcast(msg_t algo, unsigned char *buf, size_t buf_len
     if(msg_enc == NULL)
         error(-1, 0, "Unable to get encoder for algorithm type %d", (int)algo);
 
-    size_t chunk_size = PACKET_LEN;
-
     // Set up the encoder with the message data and chunk size
-    msg_enc->init(buf, buf_len, chunk_size, group_set.size()-1);
+    msg_enc->init(buf, buf_len, PACKET_LEN, group_set.size()-1);
 
     // Increment the message id counter
     msg_counter++;
 
     // Continually generate chunks until the decoder is out of chunks
+    size_t chunk_size;
     unsigned char *chunk = NULL;
     struct message out_msg;
     for (int i = 0; i < (int)group_set.size(); i++) {
@@ -511,7 +510,7 @@ void broadcast_channel::broadcast(msg_t algo, unsigned char *buf, size_t buf_len
                     sizeof(peer->ip)) < 0)
             error(-1, errno, "Could not connect to peer %s", peer->name);
 
-        while(NULL != (chunk = msg_enc->generate_chunk())){
+        while((chunk_size = msg_enc->generate_chunk(&chunk)) > 0 && chunk != NULL){
             // Build the message around the chunk
             out_msg.type = algo;
             out_msg.cli_id = my_info->id;

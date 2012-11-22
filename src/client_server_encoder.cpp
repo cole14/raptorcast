@@ -27,19 +27,23 @@ void client_server_encoder::init(unsigned char *d, size_t dl, size_t cl, size_t 
         error(-1, 0, "Unable to initialize client_server_encoder with zero peers");
 }
 
-unsigned char * client_server_encoder::generate_chunk(){
+int client_server_encoder::generate_chunk(unsigned char **dest){
     unsigned char *chunk = NULL;
     size_t len = data_len - data_pos;
     if(len > chunk_len) len = chunk_len;
 
-    if(len == 0) return NULL;
+    if(len <= 0) {
+        *dest = NULL;
+        return 0;
+    }
 
     chunk = (unsigned char *)calloc(len, sizeof(unsigned char));
     memset(chunk, 0, len);
     memcpy(chunk, data + data_pos, len);
     data_pos += len;
 
-    return chunk;
+    *dest = chunk;
+    return len;
 }
 
 void client_server_encoder::next_stream() {
