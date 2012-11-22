@@ -82,6 +82,8 @@ class broadcast_channel {
         bool send_peer_list(int client_sock, struct client_info *target);
         // Tell the list of peers that we exist
         bool notify_peers();
+        // Add a peer to the list
+        void add_peer(struct message *);
         // Wait for and handle network requests from other peers
         void accept_connections();
         // Wrapper func for start_server for the purpose of threadding

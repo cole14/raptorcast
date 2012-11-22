@@ -117,7 +117,6 @@ bool broadcast_channel::get_peer_list(std::string hostname, int port) {
     struct addrinfo *strap_h;
     struct sockaddr_in *strap_addr;
     struct message in_msg, out_msg;
-    struct client_info *peer_info;
 
     // Setup the socket
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
@@ -146,6 +145,7 @@ bool broadcast_channel::get_peer_list(std::string hostname, int port) {
     if (in_msg.type != PEER)
         error(-1, EIO, "received bad bootstrap response message type");
 
+    struct client_info *peer_info;
     peer_info = (struct client_info *) in_msg.data;
     if (strcmp(peer_info->name, my_info->name) != 0)
         error(-1, EIO, "Bootstrap response gave bad name");
@@ -154,16 +154,7 @@ bool broadcast_channel::get_peer_list(std::string hostname, int port) {
 
     // Following 0 or more messages will represent network peers
     while (recv(sock, &in_msg,sizeof(in_msg), 0) > 0) {
-        if (in_msg.type != PEER)
-            error(-1, EIO, "Bootstrap sent non-peer message");
-        peer_info = (struct client_info *) malloc(sizeof(client_info));
-        memcpy(peer_info, in_msg.data, sizeof(struct client_info));
-        group_set.push_back(peer_info);
-
-        fprintf(stdout, "Read peer info!  Name %s, host %s, port %d\n",
-                peer_info->name,
-                inet_ntoa(peer_info->ip.sin_addr),
-                ntohs(peer_info->ip.sin_port));
+        add_peer(&in_msg);
     }
 
     // Clean up
@@ -263,6 +254,22 @@ bool broadcast_channel::send_peer_list(int sock, struct client_info *target) {
     return true;
 }
 
+void broadcast_channel::add_peer(struct message *in_msg) {
+    if (in_msg->type != PEER)
+        error(-1, EIO, "Tried to add peer from non-peer message");
+
+    struct client_info *peer_info;
+    peer_info = (struct client_info *) malloc(sizeof(client_info));
+    memcpy(peer_info, &in_msg->data, sizeof(struct client_info));
+    group_set.push_back(peer_info);
+
+    fprintf(stdout, "received peer request!  Name %s, id %u, host %s, port %d\n",
+            peer_info->name,
+            peer_info->id,
+            inet_ntoa(peer_info->ip.sin_addr),
+            ntohs(peer_info->ip.sin_port));
+}
+
 void *broadcast_channel::start_server(void *args) {
     broadcast_channel *bc = (broadcast_channel *) args;
     bc->accept_connections();
@@ -273,10 +280,9 @@ void broadcast_channel::accept_connections() {
     int server_sock, client_sock;
     int bytes_received;
     struct message in_msg, out_msg;
-    struct client_info *peer_info;
     struct sockaddr_in servaddr;
-    bool running = true;
     decoder *msg_dec = NULL;
+    struct client_info *peer_info;
 
     // Set up the socket
     if ((server_sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
@@ -293,6 +299,7 @@ void broadcast_channel::accept_connections() {
 
     listen(server_sock, 10);
 
+    bool running = true;
     while (running) {
         fprintf(stdout, "Server waiting...\n");
 
@@ -313,16 +320,7 @@ void broadcast_channel::accept_connections() {
 
             case PEER:
                 // Add the new peer to the group
-                peer_info = (struct client_info *) malloc(sizeof(client_info));
-                memcpy(peer_info, &in_msg.data, sizeof(struct client_info));
-                group_set.push_back(peer_info);
-
-                fprintf(stdout, "received peer request!  Name %s, id %u, host %s, port %d\n",
-                        peer_info->name,
-                        peer_info->id,
-                        inet_ntoa(peer_info->ip.sin_addr),
-                        ntohs(peer_info->ip.sin_port));
-
+                add_peer(&in_msg);
                 // Send our READY reply
                 memset(&out_msg, 0, sizeof(out_msg));
                 out_msg.type = READY;
@@ -331,7 +329,6 @@ void broadcast_channel::accept_connections() {
 
                 if (send(client_sock, &out_msg, sizeof(out_msg), 0) != sizeof(out_msg))
                     error(-1, errno, "Could not send ready reply");
-
                 break;
 
             case QUIT:
@@ -492,7 +489,7 @@ void broadcast_channel::broadcast(msg_t algo, unsigned char *buf, size_t buf_len
     msg_counter++;
 
     // Continually generate chunks until the decoder is out of chunks
-    size_t chunk_size;
+    size_t chunk_size = 0;
     unsigned char *chunk = NULL;
     struct message out_msg;
     for (int i = 0; i < (int)group_set.size(); i++) {
