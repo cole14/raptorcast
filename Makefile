@@ -10,7 +10,12 @@ CFLAGS=-g -Wall -Werror
 LDFLAGS=-lpthread -pthread
 
 #List of source files 
-SRC_FILES=client.cpp broadcast_channel.cpp channel_listener.cpp client_server_encoder.cpp client_server_decoder.cpp
+SRC_FILES=	client.cpp
+SRC_FILES+=	broadcast_channel.cpp
+SRC_FILES+=	channel_listener.cpp
+SRC_FILES+=	client_server_encoder.cpp client_server_decoder.cpp
+SRC_FILES+=	cooperative_encoder.cpp cooperative_decoder.cpp
+
 #List of generated object files
 OBJS = $(patsubst %.cpp, $(BINDIR)/%.o, $(SRC_FILES))
 #Client executable

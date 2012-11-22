@@ -14,6 +14,8 @@
 #include "broadcast_channel.h"
 #include "client_server_encoder.h"
 #include "client_server_decoder.h"
+#include "cooperative_encoder.h"
+#include "cooperative_decoder.h"
 
 //gethostbyname error num
 extern int h_errno;
@@ -26,6 +28,29 @@ void dump_buf(unsigned char *buf, size_t len){
             fprintf(stdout, "\n");
     }
     fprintf(stdout, "\n");
+}
+
+const char * msg_t_to_str(msg_t type) {
+    switch (type) {
+        case JOIN:
+            return "JOIN";
+        case PEER:
+            return "PEER";
+        case READY:
+            return "READY";
+        case QUIT:
+            return "QUIT";
+        case CLIENT_SERVER:
+            return "CLIENT_SERVER";
+        case TRAD:
+            return "TRAD";
+        case COOP:
+            return "COOP";
+        case RAPTOR:
+            return "RAPTOR";
+        default:
+            return "UNKNOWN MESSAGE TYPE";
+    }
 }
 
 //Default destructor - nothing to do
@@ -270,6 +295,21 @@ void broadcast_channel::add_peer(struct message *in_msg) {
             ntohs(peer_info->ip.sin_port));
 }
 
+decoder *broadcast_channel::init_decoder(msg_t algo) {
+    switch (algo) {
+        case CLIENT_SERVER:
+            return new client_server_decoder();
+        case COOP:
+            return new cooperative_decoder();
+        case TRAD:
+        case RAPTOR:
+            return NULL;  // Not yet implemented
+        default:
+            return NULL;
+    }
+    return NULL;
+}
+
 void *broadcast_channel::start_server(void *args) {
     broadcast_channel *bc = (broadcast_channel *) args;
     bc->accept_connections();
@@ -288,8 +328,9 @@ void broadcast_channel::accept_connections() {
     if ((server_sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
         error(-1, errno, "Could not create server socket");
 
-    // Put together a sockaddr for us.  Note that the only difference between this and my_info
-    // is that my_info's sin_addr represents this IP address, whereas we want INADDR_ANY
+    // Put together a sockaddr for us.  Note that the only difference
+    // between this and my_info is that my_info's sin_addr represents
+    // this IP address, whereas we want INADDR_ANY
     memset(&servaddr, 0, sizeof(servaddr));
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -359,9 +400,12 @@ void broadcast_channel::accept_connections() {
                 break;
 
             case CLIENT_SERVER:
-                fprintf(stdout, "received CLIENT_SERVER message\n");
+                if (in_msg.cli_id == my_info->id)
+                    continue;  // It's just a bump of one of our own messages
+
+                fprintf(stdout, "received %s message\n", msg_t_to_str(in_msg.type));
                 if(decoders.find(in_msg.msg_id) == decoders.end()){
-                    msg_dec = new client_server_decoder();
+                    msg_dec = init_decoder(in_msg.type);
                     decoders[in_msg.msg_id] = msg_dec;
                 }
                 msg_dec = decoders[in_msg.msg_id];
@@ -374,8 +418,6 @@ void broadcast_channel::accept_connections() {
                 while (in_msg.data_len != 0) {
                     if ((bytes_received = recv(client_sock, &in_msg, sizeof(in_msg), 0)) < 0)
                         error(-1, errno, "Could not receive client message");
-                    if (in_msg.type != CLIENT_SERVER)
-                        error(-1, EIO, "Inconsistant message type %d", in_msg.type);
 
                     msg_dec->add_chunk(in_msg.data, in_msg.data_len);
                     fprintf(stdout, "dumping buf\n");

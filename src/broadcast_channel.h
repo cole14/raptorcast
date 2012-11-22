@@ -84,6 +84,8 @@ class broadcast_channel {
         bool notify_peers();
         // Add a peer to the list
         void add_peer(struct message *);
+        // Construct a decoder of the appropriate type
+        decoder *init_decoder(msg_t);
         // Wait for and handle network requests from other peers
         void accept_connections();
         // Wrapper func for start_server for the purpose of threadding
