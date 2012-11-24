@@ -9,7 +9,7 @@
 class cooperative_decoder : public decoder {
     public:
         cooperative_decoder();
-        virtual ~cooperative_decoder() { }
+        ~cooperative_decoder();
         void add_chunk (unsigned char * data, size_t len, unsigned int chunk_id);
         bool is_done ();
         unsigned char * get_message ();
