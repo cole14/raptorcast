@@ -9,7 +9,7 @@ data_len(0),
 done(false)
 { }
 
-void client_server_decoder::add_chunk (unsigned char * d, size_t len){
+void client_server_decoder::add_chunk (unsigned char * d, size_t len, unsigned int id) {
     if (len == 0) {
         done = true;
         return;

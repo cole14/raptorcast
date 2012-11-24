@@ -38,7 +38,8 @@ struct message {
     msg_t type;
     unsigned int cli_id;
     unsigned int msg_id;
-    int data_len;
+    unsigned int chunk_id;
+    size_t data_len;
     unsigned char data[PACKET_LEN];
 };
 

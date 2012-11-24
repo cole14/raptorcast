@@ -7,7 +7,7 @@ class client_server_encoder : public encoder {
     public:
         client_server_encoder();
         virtual ~client_server_encoder() { }
-        int generate_chunk(unsigned char **dest);
+        int generate_chunk(unsigned char **dest, unsigned int *chunk_id);
         void init(unsigned char *data, size_t data_len, size_t chunk_len, size_t num_peers);
         void next_stream();
 

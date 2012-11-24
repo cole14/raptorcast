@@ -9,7 +9,7 @@ class client_server_decoder : public decoder {
     public:
         client_server_decoder();
         virtual ~client_server_decoder() { }
-        void add_chunk (unsigned char * data, size_t len);
+        void add_chunk (unsigned char * data, size_t len, unsigned int chunk_id);
         bool is_done ();
         unsigned char * get_message ();
         size_t get_len ();

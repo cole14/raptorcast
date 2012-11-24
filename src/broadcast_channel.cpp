@@ -121,6 +121,7 @@ void broadcast_channel::construct_message(msg_t type, struct message *dest, cons
     dest->type = type;
     dest->cli_id = my_info->id;
     dest->msg_id = msg_counter++;
+    dest->chunk_id = 0;
     if (src != NULL) {
         dest->data_len = n;
         memcpy(&dest->data, src, n);
@@ -363,10 +364,7 @@ void broadcast_channel::accept_connections() {
                 // Add the new peer to the group
                 add_peer(&in_msg);
                 // Send our READY reply
-                memset(&out_msg, 0, sizeof(out_msg));
-                out_msg.type = READY;
-                out_msg.cli_id = my_info->id;
-                out_msg.msg_id = msg_counter++;
+                construct_message(READY, &out_msg, NULL, 0);
 
                 if (send(client_sock, &out_msg, sizeof(out_msg), 0) != sizeof(out_msg))
                     error(-1, errno, "Could not send ready reply");
@@ -411,7 +409,7 @@ void broadcast_channel::accept_connections() {
                 msg_dec = decoders[in_msg.msg_id];
 
                 // Add the chunk we just got
-                msg_dec->add_chunk(in_msg.data, in_msg.data_len);
+                msg_dec->add_chunk(in_msg.data, in_msg.data_len, in_msg.chunk_id);
                 dump_buf(in_msg.data, in_msg.data_len);
 
                 // Keep reading chunks and adding them until the bcast is done
@@ -419,7 +417,7 @@ void broadcast_channel::accept_connections() {
                     if ((bytes_received = recv(client_sock, &in_msg, sizeof(in_msg), 0)) < 0)
                         error(-1, errno, "Could not receive client message");
 
-                    msg_dec->add_chunk(in_msg.data, in_msg.data_len);
+                    msg_dec->add_chunk(in_msg.data, in_msg.data_len, in_msg.chunk_id);
                     fprintf(stdout, "dumping buf\n");
                     dump_buf(in_msg.data, in_msg.data_len);
                 }
@@ -533,6 +531,7 @@ void broadcast_channel::broadcast(msg_t algo, unsigned char *buf, size_t buf_len
     // Continually generate chunks until the decoder is out of chunks
     size_t chunk_size = 0;
     unsigned char *chunk = NULL;
+    unsigned int chunk_id = 0;
     struct message out_msg;
     for (int i = 0; i < (int)group_set.size(); i++) {
         peer =  group_set[i];
@@ -549,11 +548,13 @@ void broadcast_channel::broadcast(msg_t algo, unsigned char *buf, size_t buf_len
                     sizeof(peer->ip)) < 0)
             error(-1, errno, "Could not connect to peer %s", peer->name);
 
-        while((chunk_size = msg_enc->generate_chunk(&chunk)) > 0 && chunk != NULL){
+        while((chunk_size = msg_enc->generate_chunk(&chunk, &chunk_id)) > 0 &&
+                chunk != NULL){
             // Build the message around the chunk
             out_msg.type = algo;
             out_msg.cli_id = my_info->id;
             out_msg.msg_id = msg_counter;//we don't want a new msgid for each chunk
+            out_msg.chunk_id = chunk_id;
             out_msg.data_len = chunk_size;
             memset(&out_msg.data, 0, PACKET_LEN);
             memcpy(&(out_msg.data), chunk, chunk_size);
@@ -570,6 +571,7 @@ void broadcast_channel::broadcast(msg_t algo, unsigned char *buf, size_t buf_len
         out_msg.type = algo;
         out_msg.cli_id = my_info->id;
         out_msg.msg_id = msg_counter;//we don't want a new msgid for each chunk
+        out_msg.chunk_id = 0;
         out_msg.data_len = 0;
         memset(&out_msg.data, 0, PACKET_LEN);
 
