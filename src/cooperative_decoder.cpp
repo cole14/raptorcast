@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -15,21 +16,24 @@ cooperative_decoder::~cooperative_decoder() {
     if (decoded_data) free(decoded_data);
 }
 
-#define INSERT(k,v) chunk_map.insert(std::pair<unsigned int, unsigned char *>(k, v))
 void cooperative_decoder::add_chunk (unsigned char * d, size_t len, unsigned int id){
     if (id == 0) {
+        if (msg_desc != NULL) {
+            // We've already been inited, which means that this is just a
+            // transmission terminator.  Ignore it
+            return;
+        }
         // Read the message descriptor
         msg_desc = (struct coop_descriptor *)malloc(sizeof(struct coop_descriptor));
         memcpy(msg_desc, d, sizeof(coop_descriptor));
-        INSERT(id, NULL);
+        chunk_map[id] = NULL;
     } else {
         unsigned char *data = (unsigned char *) malloc(len);
         memcpy(data, d, len);
-        INSERT(id, data);
+        chunk_map[id] = data;
         data_len += len;
     }
 }
-#undef INSERT
 
 bool cooperative_decoder::is_done (){
     if (msg_desc->total_chunks == 0) {
@@ -61,12 +65,15 @@ unsigned char * cooperative_decoder::get_message (){
         memcpy(pos, chunk_map[i], data_len-bytes_read);
 
         return decoded_data;
-        // XXX NOT YET TESTED!!!
     }
 }
 
 size_t cooperative_decoder::get_len (){
-    return data_len;
+    if (!is_done()) {
+        return 0;
+    } else {
+        return data_len;
+    }
 }
 
 

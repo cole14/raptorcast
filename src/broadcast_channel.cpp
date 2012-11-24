@@ -398,6 +398,7 @@ void broadcast_channel::accept_connections() {
                 break;
 
             case CLIENT_SERVER:
+            case COOP:
                 if (in_msg.cli_id == my_info->id)
                     continue;  // It's just a bump of one of our own messages
 
@@ -429,7 +430,6 @@ void broadcast_channel::accept_connections() {
 
                 break;
             case TRAD:
-            case COOP:
             case RAPTOR:
                 // Not implemented
                 fprintf(stderr, "Oh Noes! We got a message we don't know what to do with...\n");
@@ -508,7 +508,11 @@ void broadcast_channel::quit() {
 
 encoder *broadcast_channel::get_encoder(msg_t algo){
     switch(algo){
-        case CLIENT_SERVER: return new client_server_encoder();
+        case CLIENT_SERVER:
+            return new client_server_encoder();
+        case COOP:
+            return new cooperative_encoder();
+
         default: return NULL;
     }
 }
@@ -550,6 +554,8 @@ void broadcast_channel::broadcast(msg_t algo, unsigned char *buf, size_t buf_len
 
         while((chunk_size = msg_enc->generate_chunk(&chunk, &chunk_id)) > 0 &&
                 chunk != NULL){
+            printf("Sending chunk %u of msg %lu to peer %u\n",
+                    chunk_id, msg_counter, peer->id);
             // Build the message around the chunk
             out_msg.type = algo;
             out_msg.cli_id = my_info->id;

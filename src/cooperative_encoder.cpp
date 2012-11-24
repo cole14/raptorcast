@@ -1,8 +1,9 @@
+#include <error.h>
 #include <math.h>
+#include <stddef.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stddef.h>
-#include <error.h>
 
 #include "cooperative_encoder.h"
 
@@ -13,6 +14,7 @@ cooperative_encoder::cooperative_encoder() :
     chunk_len(0),
     chunks_per_peer(0),
     current_peer_chunks(0),
+    descriptor_sent(false),
     chunk_id(0)
 { }
 
@@ -20,11 +22,11 @@ void cooperative_encoder::init(unsigned char *d, size_t dl, size_t cl, size_t np
     //Sanity checks
     if(d == NULL)
         error(-1, 0, "Unable to initialize cooperative_encoder with NULL data");
-    if(data_len == 0)
+    if(dl == 0)
         error(-1, 0, "Unable to initialize cooperative_encoder with zero-length data");
-    if(chunk_len == 0)
+    if(cl == 0)
         error(-1, 0, "Unable to initialize cooperative_encoder with zero-length chunks");
-    if (num_peers == 0)
+    if (np == 0)
         error(-1, 0, "Unable to initialize cooperative_encoder with zero peers");
 
     data = d;
