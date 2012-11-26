@@ -296,7 +296,7 @@ void broadcast_channel::add_peer(struct message *in_msg) {
             ntohs(peer_info->ip.sin_port));
 }
 
-decoder *broadcast_channel::init_decoder(msg_t algo) {
+decoder *broadcast_channel::get_decoder(msg_t algo) {
     switch (algo) {
         case CLIENT_SERVER:
             return new client_server_decoder();
@@ -404,7 +404,7 @@ void broadcast_channel::accept_connections() {
 
                 fprintf(stdout, "received %s message\n", msg_t_to_str(in_msg.type));
                 if(decoders.find(in_msg.msg_id) == decoders.end()){
-                    msg_dec = init_decoder(in_msg.type);
+                    msg_dec = get_decoder(in_msg.type);
                     decoders[in_msg.msg_id] = msg_dec;
                 }
                 msg_dec = decoders[in_msg.msg_id];
@@ -463,8 +463,7 @@ bool broadcast_channel::join(std::string hostname, int port){
     // Add myself to the peer list
     group_set.push_back(my_info);
 
-    pthread_t listen_thread;
-    pthread_create( &listen_thread, NULL, start_server, (void *)this);
+    pthread_create( &receiver_thread, NULL, start_server, (void *)this);
 
     return true;
 }

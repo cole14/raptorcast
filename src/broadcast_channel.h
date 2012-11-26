@@ -85,20 +85,21 @@ class broadcast_channel {
         bool notify_peers();
         // Add a peer to the list
         void add_peer(struct message *);
-        // Construct a decoder of the appropriate type
-        decoder *init_decoder(msg_t);
         // Wait for and handle network requests from other peers
         void accept_connections();
         // Wrapper func for start_server for the purpose of threadding
         static void *start_server(void *);
+
+        // Get an encoder object for message type 'algo'
+        encoder *get_encoder(msg_t algo);
+        // Construct a decoder of the appropriate type
+        decoder *get_decoder(msg_t);
 
         // Get an id that is not currently in use within the peer set
         // Note that this is terrible and presents all sorts of race conditions
         unsigned int get_unused_id();
         // Put together a message containing the given data
         void construct_message(msg_t type, struct message *dest, const void *src, size_t n);
-        // Get an encoder object for message type 'algo'
-        encoder *get_encoder(msg_t algo);
 };
 
 #endif /* __BROADCAST_CHANNEL_H */
