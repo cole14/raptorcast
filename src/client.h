@@ -20,6 +20,7 @@ class client : public channel_listener {
         int read_port(void);
         char *line_buf;
         size_t line_buf_len;
+        ssize_t line_buf_filled_len;
 
         broadcast_channel *chan;
         std::string name;

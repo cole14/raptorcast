@@ -27,7 +27,7 @@ static void usage(void){
  * self-identifying information.
  */
 client::client(std::string name, std::string port)
-:line_buf(NULL), line_buf_len(0), chan(NULL), name(name)
+:line_buf(NULL), line_buf_len(0), line_buf_filled_len(0), chan(NULL), name(name)
 {
     chan = new broadcast_channel(name, port, this);
 }
@@ -54,17 +54,16 @@ void client::receive(unsigned char *buf, size_t buf_len){
 }
 
 char *client::read_stripped_line(){
-    ssize_t len = 0;
-
     //Read the line
-    if(-1 == (len = getline(&line_buf, &line_buf_len, stdin))){
-        return NULL;
+    if(-1 == (line_buf_filled_len = getline(&line_buf, &line_buf_len, stdin))){
+        error(-1, errno, "Unable to read hostname");
     }
 
     //Get rid of the newline terminator
-    len = strlen(line_buf) - 1;
-    while(isspace(line_buf[len]))
-        line_buf[len--] = '\0';
+    //Hello, World!\0\0
+    line_buf_filled_len = strlen(line_buf);
+    while(isspace(line_buf[line_buf_filled_len - 1]))
+        line_buf[--line_buf_filled_len] = '\0';
 
     return line_buf;
 }
@@ -73,14 +72,8 @@ char *client::read_stripped_line(){
  * Reads a hostname from stdin. Trims off the trailing newline.
  */
 std::string client::read_hostname(void){
-    //Read the line
-    char *line = read_stripped_line();
-    if(line == NULL){
-        error(-1, errno, "Unable to read hostname");
-    }
-
     //Construct the return string
-    return std::string(line);
+    return std::string(read_stripped_line());
 }
 
 /*
@@ -90,13 +83,10 @@ int client::read_port(void){
     long port = 0;
 
     //Read the line
-    char *line = read_stripped_line();
-    if(line == NULL){
-        error(-1, errno, "Unable to read port");
-    }
+    read_stripped_line();
 
     //parse the port
-    port = strtol(line, NULL, 10);
+    port = strtol(line_buf, NULL, 10);
     if(port < 1 || port > 65534){
         error(-1, EINVAL, "Port must be in range [1, 65534]");
     }
@@ -131,8 +121,6 @@ void client::connect(){
 }
 
 msg_t client::get_alg () {
-    char *line;
-
     while (0xFULL) {
         printf("Which algorithm?\n");
         printf("client-[s]erver, [t]raditional, [c]ooperatvie, [r]aptor, [b]ack\n");
@@ -142,29 +130,27 @@ msg_t client::get_alg () {
             printf("%s> ", name.c_str());
 
             //Read the command
-            if(NULL == (line = read_stripped_line())) {
-                error(-1, errno, "Error reading user input");
-            }
-        } while (strlen(line) == 0);
+            read_stripped_line();
+        } while (strlen(line_buf) == 0);
 
         //handle the command
-        if (strcmp(line, "client-server") == 0 || strcmp(line, "s") == 0) {
+        if (strcmp(line_buf, "client-server") == 0 || strcmp(line_buf, "s") == 0) {
             return CLIENT_SERVER;
 
-        } else if (strcmp(line, "traditional") == 0 || strcmp(line, "t") == 0) {
+        } else if (strcmp(line_buf, "traditional") == 0 || strcmp(line_buf, "t") == 0) {
             return TRAD;
 
-        } else if (strcmp(line, "cooperative") == 0 || strcmp(line, "c") == 0) {
+        } else if (strcmp(line_buf, "cooperative") == 0 || strcmp(line_buf, "c") == 0) {
             return COOP;
 
-        } else if (strcmp(line, "raptor") == 0 || strcmp(line, "r") == 0) {
+        } else if (strcmp(line_buf, "raptor") == 0 || strcmp(line_buf, "r") == 0) {
             return RAPTOR;
 
-        } else if (strcmp(line, "back") == 0 || strcmp(line, "b") == 0) {
+        } else if (strcmp(line_buf, "back") == 0 || strcmp(line_buf, "b") == 0) {
             return QUIT;
 
         } else {
-            printf("Couldn't interpret response: %s\n", line);
+            printf("Couldn't interpret response: %s\n", line_buf);
             continue;
         }
     }
@@ -172,7 +158,6 @@ msg_t client::get_alg () {
 
 
 void client::run_cli() {
-    char *line;
     msg_t algorithm;
 
     while (0xFULL) {
@@ -181,51 +166,52 @@ void client::run_cli() {
             printf("%s> ", name.c_str());
 
             //Read the command
-            if(NULL == (line = read_stripped_line())) {
-                error(-1, errno, "Error reading user input");
-            }
+            read_stripped_line();
 
-        } while (strlen(line) == 0);
+        } while (strlen(line_buf) == 0);
 
         //handle the command
-        if (strcmp(line, "peers") == 0 || strcmp(line, "p") == 0) {
+        if (strcmp(line_buf, "peers") == 0 || strcmp(line_buf, "p") == 0) {
             printf("Known Peers:\n");
             chan->print_peers(1);
 
-        } else if (strcmp(line, "quit") == 0 || strcmp(line, "q") == 0) {
+        } else if (strcmp(line_buf, "quit") == 0 || strcmp(line_buf, "q") == 0) {
             printf("Quitting\n");
             chan->quit();
             break;
 
-        } else if (strcmp(line, "help") == 0 || strcmp(line, "h") == 0) {
+        } else if (strcmp(line_buf, "help") == 0 || strcmp(line_buf, "h") == 0) {
             printf("Commands: send [t]ext, send [f]ile, [p]eers, [q]uit, [h]elp\n");
 
-        } else if (strcmp(line, "send text") == 0 || strcmp(line, "t") == 0) {
+        } else if (strcmp(line_buf, "send text") == 0 || strcmp(line_buf, "t") == 0) {
             algorithm = get_alg();
             if (algorithm == QUIT) continue;
-            printf("Sending text...\n");
 
-        } else if (strcmp(line, "send file") == 0 || strcmp(line, "f") == 0) {
+            printf("Input text: ");
+            read_stripped_line();
+
+            printf("Sending text...%s\n",line_buf);
+            chan->broadcast(algorithm, (unsigned char *)line_buf, line_buf_filled_len);
+
+        } else if (strcmp(line_buf, "send file") == 0 || strcmp(line_buf, "f") == 0) {
             //Get the desired broadcast algorithm
             algorithm = get_alg();
             if (algorithm == QUIT) continue;
 
             //Get the filename
             printf("Which File?\n");
-            if(NULL == (line = read_stripped_line())) {
-                error(-1, errno, "Error reading user input");
-            }
+            read_stripped_line();
 
             //Open the file
-            FILE *fp = fopen(line, "r");
+            FILE *fp = fopen(line_buf, "r");
             if(fp == NULL){
-                error(-1, errno, "Error opening '%s'", line);
+                error(-1, errno, "Error opening '%s'", line_buf);
             }
 
             //Get the file length
             struct stat fp_stat;
             if(-1 == fstat(fileno(fp), &fp_stat)){
-                error(-1, errno, "Error stating '%s'", line);
+                error(-1, errno, "Error stating '%s'", line_buf);
             }
 
             //Read the file into an in-memory buffer
@@ -240,7 +226,7 @@ void client::run_cli() {
             chan->broadcast(algorithm, file_contents, (size_t)siz);
 
         } else {
-            printf("Invalid command: %s\n", line);
+            printf("Invalid command: %s\n", line_buf);
         }
     }
 }
