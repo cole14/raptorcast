@@ -3,10 +3,10 @@
 
 #include "client_server_decoder.h"
 
-client_server_decoder::client_server_decoder()
-:data(NULL),
-data_len(0),
-done(false)
+client_server_decoder::client_server_decoder():
+    data(NULL),
+    data_len(0),
+    done(false)
 { }
 
 void client_server_decoder::add_chunk (unsigned char * d, size_t len, unsigned int id) {

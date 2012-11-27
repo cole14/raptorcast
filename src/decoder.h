@@ -8,6 +8,7 @@ class decoder {
         virtual bool is_done () = 0;
         virtual unsigned char * get_message () = 0;
         virtual size_t get_len () = 0;
+        virtual bool should_forward() = 0;
 };
 
 #endif /* __DECODER_H */

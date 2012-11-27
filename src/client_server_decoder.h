@@ -13,6 +13,7 @@ class client_server_decoder : public decoder {
         bool is_done ();
         unsigned char * get_message ();
         size_t get_len ();
+        bool should_forward () { return false; }
     private:
         unsigned char *data;
         size_t data_len;

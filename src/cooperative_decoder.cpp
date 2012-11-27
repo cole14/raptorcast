@@ -23,6 +23,7 @@ void cooperative_decoder::add_chunk (unsigned char * d, size_t len, unsigned int
             // transmission terminator.  Ignore it
             return;
         }
+
         // Read the message descriptor
         msg_desc = (struct coop_descriptor *)malloc(sizeof(struct coop_descriptor));
         memcpy(msg_desc, d, sizeof(coop_descriptor));

@@ -14,6 +14,7 @@ class cooperative_decoder : public decoder {
         bool is_done ();
         unsigned char * get_message ();
         size_t get_len ();
+        bool should_forward () { return true; }
     private:
         std::map<unsigned int, unsigned char *> chunk_map;
         struct coop_descriptor *msg_desc;
