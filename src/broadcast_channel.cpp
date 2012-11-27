@@ -102,6 +102,22 @@ broadcast_channel::broadcast_channel(std::string name, std::string port, channel
 
 }
 
+int broadcast_channel::make_socket(){
+    int arg = 1;
+    int sock;
+
+    //Make the socket
+    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+        error(-1, errno, "Could not create socket");
+    //Set the options
+    if (0 != setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &arg, sizeof(arg))) 
+        error(-1, errno, "Could not set up socket options");
+    if (0 != setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &arg, sizeof(arg))) 
+        error(-1, errno, "Could not set up socket options");
+
+    return sock;
+}
+
 void broadcast_channel::construct_message(msg_t type, struct message *dest, const void *src, size_t n) {
     memset(dest, 0, sizeof(&dest));
     dest->type = type;
@@ -144,8 +160,7 @@ bool broadcast_channel::get_peer_list(std::string hostname, int port) {
     struct message in_msg, out_msg;
 
     // Setup the socket
-    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-        error(-1, errno, "Could not create bootstrap socket");
+    sock = make_socket();
 
     // Put together the strap address
     if (0 != getaddrinfo(hostname.c_str(), NULL, NULL, &strap_h))
@@ -213,8 +228,7 @@ bool broadcast_channel::notify_peers() {
         fprintf(stdout, "Notifying peer %s.\n", peer->name);
 
         // Setup the socket
-        if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-            error(-1, errno, "Could not create bootstrap socket");
+        sock = make_socket();
 
         // Open socket
         if (connect(sock, (struct sockaddr *) &peer->ip,
@@ -310,8 +324,7 @@ void broadcast_channel::accept_connections() {
     struct client_info *peer_info;
 
     // Set up the socket
-    if ((server_sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-        error(-1, errno, "Could not create server socket");
+    server_sock = make_socket();
 
     // Put together a sockaddr for us.  Note that the only difference
     // between this and my_info is that my_info's sin_addr represents
@@ -466,8 +479,7 @@ void broadcast_channel::quit() {
         fprintf(stdout, "Notifying peer %s.\n", peer->name);
 
         // Setup the socket
-        if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-            error(-1, errno, "Could not create bootstrap socket");
+        sock = make_socket();
 
         // Open socket
         if (connect(sock, (struct sockaddr *) &peer->ip,
@@ -542,8 +554,7 @@ void broadcast_channel::broadcast(msg_t algo, unsigned char *buf, size_t buf_len
         if(peer->id == my_info->id) continue;
 
         // Setup the socket
-        if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-            error(-1, errno, "Could not create bootstrap socket");
+        sock = make_socket();
 
         // Open socket
         if (connect(sock, (struct sockaddr *) &peer->ip,

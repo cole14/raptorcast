@@ -100,6 +100,9 @@ class broadcast_channel {
         unsigned int get_unused_id();
         // Put together a message containing the given data
         void construct_message(msg_t type, struct message *dest, const void *src, size_t n);
+
+        //Create a tcp socket
+        int make_socket();
 };
 
 #endif /* __BROADCAST_CHANNEL_H */
