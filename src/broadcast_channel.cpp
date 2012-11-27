@@ -336,8 +336,6 @@ void broadcast_channel::accept_connections() {
     decoder *msg_dec = NULL;
     struct client_info *peer_info;
 
-    size_t num_msg = 1;
-    struct message *msg_list = (struct message *)malloc(sizeof(struct message));
 
     // Set up the socket
     server_sock = make_socket();
@@ -356,6 +354,8 @@ void broadcast_channel::accept_connections() {
 
     bool running = true;
     while (running) {
+        size_t num_msg = 1;
+        struct message *msg_list = NULL;
         fprintf(stdout, "Server waiting...\n");
 
         // Wait for a connection
@@ -368,7 +368,6 @@ void broadcast_channel::accept_connections() {
         if ((bytes_received = recv(client_sock, &in_msg, sizeof(in_msg), 0)) < 0)
             error(-1, errno, "Could not receive client message");
 
-        struct client_info *origin = get_peer_by_id(in_msg.cli_id);
         switch (in_msg.type) {
             case JOIN :
                 send_peer_list(client_sock, (struct client_info *)&in_msg.data);
@@ -417,6 +416,7 @@ void broadcast_channel::accept_connections() {
                     continue;  // It's just a bump of one of our own messages
 
                 // Keep track of the messages we've gotten, so we can forward them along
+                msg_list = (struct message *)realloc(msg_list, sizeof(struct message));
                 memcpy(&msg_list[0], &in_msg, sizeof(struct message));
 
                 fprintf(stdout, "received %s message\n", msg_t_to_str(in_msg.type));
@@ -436,7 +436,7 @@ void broadcast_channel::accept_connections() {
                         error(-1, errno, "Could not receive client message");
 
                     num_msg++;
-                    msg_list = (struct message *)realloc(msg_list, sizeof(struct message));
+                    msg_list = (struct message *)realloc(msg_list, num_msg * sizeof(struct message));
                     memcpy(&msg_list[num_msg-1], &in_msg, sizeof(struct message));
 
                     msg_dec->add_chunk(in_msg.data, in_msg.data_len, in_msg.chunk_id);
@@ -446,17 +446,16 @@ void broadcast_channel::accept_connections() {
 
                 // Forward the message on to the other peers
                 if (msg_dec->should_forward() &&
-                        client_addr.sin_addr.s_addr == origin->ip.sin_addr.s_addr) {
+                        msg_list->ttl > 0) {
                     forward(msg_list, num_msg);
                 }
 
                 // Print the message and clean up
                 if(msg_dec->is_done()){
                     listener->receive(msg_dec->get_message(), msg_dec->get_len());
-                    decoders.erase(decoders.find(in_msg.msg_id));
+                    decoders.erase(in_msg.msg_id);
                 }
-                for (size_t i = 0; i < num_msg; i++)
-                    free(&msg_list[i]);
+                free(msg_list);
 
                 break;
             case TRAD:
@@ -602,6 +601,7 @@ void broadcast_channel::broadcast(msg_t algo, unsigned char *buf, size_t buf_len
             out_msg.cli_id = my_info->id;
             out_msg.msg_id = msg_counter;//we don't want a new msgid for each chunk
             out_msg.chunk_id = chunk_id;
+            out_msg.ttl = 1;
             out_msg.data_len = chunk_size;
             memset(&out_msg.data, 0, PACKET_LEN);
             memcpy(&(out_msg.data), chunk, chunk_size);
@@ -619,6 +619,7 @@ void broadcast_channel::broadcast(msg_t algo, unsigned char *buf, size_t buf_len
         out_msg.cli_id = my_info->id;
         out_msg.msg_id = msg_counter;//we don't want a new msgid for each chunk
         out_msg.chunk_id = 0;
+        out_msg.ttl = 1;
         out_msg.data_len = 0;
         memset(&out_msg.data, 0, PACKET_LEN);
 
@@ -662,6 +663,7 @@ void broadcast_channel::forward(struct message *msg_list, size_t num_msg) {
             printf("Forwarding chunk %u of msg %u from peer %u to peer %u\n",
                     out_msg->chunk_id, out_msg->msg_id, out_msg->cli_id, peer->id);
 
+            out_msg->ttl = 0;  // We don't want people to rebroadcast rebroadcasts
             if (send(sock, out_msg, sizeof(struct message), 0) != sizeof(struct message))
                 error(-1, errno, "Could not forward transmission");
         }
