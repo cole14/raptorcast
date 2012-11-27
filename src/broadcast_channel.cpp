@@ -102,20 +102,6 @@ broadcast_channel::broadcast_channel(std::string name, std::string port, channel
 
 }
 
-void broadcast_channel::print_peers(int indent) {
-    struct client_info *peer;
-    for (unsigned int i = 0; i < group_set.size(); i++) {
-        peer = group_set[i];
-        for(int i = 0; i < indent; i++) printf("%s", "    ");
-        printf("Peer %d: %s -> %s:%d\n",
-                peer->id,
-                peer->name,
-                inet_ntoa(peer->ip.sin_addr),
-                ntohs(peer->ip.sin_port));
-    }
-}
-
-
 void broadcast_channel::construct_message(msg_t type, struct message *dest, const void *src, size_t n) {
     memset(dest, 0, sizeof(&dest));
     dest->type = type;
@@ -127,6 +113,19 @@ void broadcast_channel::construct_message(msg_t type, struct message *dest, cons
         memcpy(&dest->data, src, n);
     } else {
         dest->data_len = 0;
+    }
+}
+
+void broadcast_channel::print_peers(int indent) {
+    struct client_info *peer;
+    for (unsigned int i = 0; i < group_set.size(); i++) {
+        peer = group_set[i];
+        for(int i = 0; i < indent; i++) printf("%s", "    ");
+        printf("Peer %d: %s -> %s:%d\n",
+                peer->id,
+                peer->name,
+                inet_ntoa(peer->ip.sin_addr),
+                ntohs(peer->ip.sin_port));
     }
 }
 
@@ -243,13 +242,6 @@ bool broadcast_channel::notify_peers() {
     return true;
 }
 
-unsigned int broadcast_channel::get_unused_id() {
-    unsigned int max_used = 0;
-    for (int i = 0; i < (int) group_set.size(); i++)
-        if (group_set[i]->id > max_used) max_used = group_set[i]->id;
-    return max_used + 1;
-}
-
 bool broadcast_channel::send_peer_list(int sock, struct client_info *target) {
     struct message out_msg;
     struct client_info *peer;
@@ -296,19 +288,11 @@ void broadcast_channel::add_peer(struct message *in_msg) {
             ntohs(peer_info->ip.sin_port));
 }
 
-decoder *broadcast_channel::get_decoder(msg_t algo) {
-    switch (algo) {
-        case CLIENT_SERVER:
-            return new client_server_decoder();
-        case COOP:
-            return new cooperative_decoder();
-        case TRAD:
-        case RAPTOR:
-            return NULL;  // Not yet implemented
-        default:
-            return NULL;
-    }
-    return NULL;
+unsigned int broadcast_channel::get_unused_id() {
+    unsigned int max_used = 0;
+    for (int i = 0; i < (int) group_set.size(); i++)
+        if (group_set[i]->id > max_used) max_used = group_set[i]->id;
+    return max_used + 1;
 }
 
 void *broadcast_channel::start_server(void *args) {
@@ -503,6 +487,21 @@ void broadcast_channel::quit() {
     }
 
     pthread_join(receiver_thread, NULL);
+}
+
+decoder *broadcast_channel::get_decoder(msg_t algo) {
+    switch (algo) {
+        case CLIENT_SERVER:
+            return new client_server_decoder();
+        case COOP:
+            return new cooperative_decoder();
+        case TRAD:
+        case RAPTOR:
+            return NULL;  // Not yet implemented
+        default:
+            return NULL;
+    }
+    return NULL;
 }
 
 encoder *broadcast_channel::get_encoder(msg_t algo){
