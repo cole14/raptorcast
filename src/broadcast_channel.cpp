@@ -644,6 +644,7 @@ void broadcast_channel::broadcast(msg_t algo, unsigned char *buf, size_t buf_len
 void broadcast_channel::forward(struct message *msg_list, size_t num_msg) {
     int sock;
     struct client_info *peer;
+    struct message *out_msg;
     for (int i = 0; i < (int)group_set.size(); i++) {
         peer =  group_set[i];
 
@@ -659,9 +660,17 @@ void broadcast_channel::forward(struct message *msg_list, size_t num_msg) {
             error(-1, errno, "Could not connect to peer %s", peer->name);
 
         // Send all messages
-        for (struct message *out_msg = msg_list; out_msg < msg_list + num_msg; out_msg++) {
-            printf("Forwarding chunk %u of msg %u from peer %u to peer %u\n",
-                    out_msg->chunk_id, out_msg->msg_id, out_msg->cli_id, peer->id);
+        for (out_msg = msg_list; out_msg < msg_list + num_msg; out_msg++) {
+            if (out_msg->data_len != 0) {
+                printf("Forwarding chunk %u of msg %u from peer %u to peer %u\n",
+                        out_msg->chunk_id, out_msg->msg_id,
+                        out_msg->cli_id, peer->id);
+            } else {
+                printf("Forwarding terminal chunk of msg %u "
+                        "from peer %u to peer %u\n",
+                        out_msg->msg_id,
+                        out_msg->cli_id, peer->id);
+            }
 
             out_msg->ttl = 0;  // We don't want people to rebroadcast rebroadcasts
             if (send(sock, out_msg, sizeof(struct message), 0) != sizeof(struct message))

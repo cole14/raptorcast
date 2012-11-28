@@ -17,6 +17,10 @@ cooperative_decoder::~cooperative_decoder() {
 }
 
 void cooperative_decoder::add_chunk (unsigned char * d, size_t len, unsigned int id){
+    if (len == 0) {
+        // End of transmission, ignore
+        return;
+    }
     if (id == 0) {
         if (msg_desc != NULL) {
             // We've already been inited, which means that this is just a
@@ -25,19 +29,27 @@ void cooperative_decoder::add_chunk (unsigned char * d, size_t len, unsigned int
         }
 
         // Read the message descriptor
+        printf("Read message descriptor (chunk 0)!\n");
         msg_desc = (struct coop_descriptor *)malloc(sizeof(struct coop_descriptor));
         memcpy(msg_desc, d, sizeof(coop_descriptor));
         chunk_map[id] = NULL;
     } else {
+        printf("Read chunk %u\n", id);
         unsigned char *data = (unsigned char *) malloc(len);
         memcpy(data, d, len);
         chunk_map[id] = data;
         data_len += len;
     }
+    printf("Current chunks: ");
+    std::map<unsigned int, unsigned char *>::iterator it = chunk_map.begin();
+    for (; it != chunk_map.end(); ++it) {
+        printf("%u, ", it->first);
+    }
+    printf("\n");
 }
 
 bool cooperative_decoder::is_done (){
-    if (msg_desc->total_chunks == 0) {
+    if (msg_desc == NULL || msg_desc->total_chunks == 0) {
         return false;
     } else {
         return chunk_map.size() >= msg_desc->total_chunks;
