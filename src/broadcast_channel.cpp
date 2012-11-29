@@ -12,10 +12,6 @@
 #include <unistd.h>
 
 #include "broadcast_channel.h"
-#include "client_server_encoder.h"
-#include "client_server_decoder.h"
-#include "cooperative_encoder.h"
-#include "cooperative_decoder.h"
 
 //gethostbyname error num
 extern int h_errno;
@@ -536,32 +532,6 @@ void broadcast_channel::quit() {
     }
 
     pthread_join(receiver_thread, NULL);
-}
-
-decoder *broadcast_channel::get_decoder(msg_t algo) {
-    switch (algo) {
-        case CLIENT_SERVER:
-            return new client_server_decoder();
-        case COOP:
-            return new cooperative_decoder();
-        case TRAD:
-        case RAPTOR:
-            return NULL;  // Not yet implemented
-        default:
-            return NULL;
-    }
-    return NULL;
-}
-
-encoder *broadcast_channel::get_encoder(msg_t algo){
-    switch(algo){
-        case CLIENT_SERVER:
-            return new client_server_encoder();
-        case COOP:
-            return new cooperative_encoder();
-
-        default: return NULL;
-    }
 }
 
 void broadcast_channel::broadcast(msg_t algo, unsigned char *buf, size_t buf_len){
