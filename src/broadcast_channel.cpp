@@ -66,6 +66,7 @@ broadcast_channel::broadcast_channel(std::string name, std::string port, channel
     //Init members
     listener = lstnr;
     msg_counter = 0;
+    debug_mode = false;
 
     //Allocate the client_info struct
     my_info = (struct client_info *)calloc(1, sizeof(struct client_info));
@@ -125,6 +126,10 @@ client_info *broadcast_channel::get_peer_by_id(unsigned int id) {
         }
     }
     return NULL;
+}
+
+bool broadcast_channel::toggle_debug_mode(){
+    return (debug_mode = !debug_mode);
 }
 
 int broadcast_channel::make_socket(){

@@ -64,6 +64,9 @@ class broadcast_channel {
         // Notify peers that we're quitting, clean up connections, etc.
         void quit();
 
+        // Toggle the debug mode for this broadcast channel.
+        bool toggle_debug_mode();
+
     private:
         // The client info for this broadcast_channel
         struct client_info *my_info;
@@ -79,6 +82,8 @@ class broadcast_channel {
         channel_listener *listener;
         // The monotonically increasing unique message id counter for this sender
         unsigned long msg_counter;
+        // Flag to specify whether to artifically crash at specified points
+        bool debug_mode;
 
         // Contact a known host and get a list of all peers
         bool get_peer_list(std::string hostname, int port);
