@@ -73,6 +73,8 @@ class broadcast_channel {
         std::map< unsigned long, decoder * > decoders;
         // The chunk receiver thread
         pthread_t receiver_thread;
+        // The chunk receiver socket
+        int server_sock;
         // The application listening on this channel
         channel_listener *listener;
         // The monotonically increasing unique message id counter for this sender

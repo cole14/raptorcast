@@ -90,6 +90,20 @@ broadcast_channel::broadcast_channel(std::string name, std::string port, channel
     }
     my_info->ip = *((sockaddr_in *)local_h->ai_addr);
 
+    //Make sure we can use the supplied info and set up the 
+    //chunk receiver socket (don't start listenening though).
+    server_sock = make_socket();
+
+    // Put together a sockaddr for us.  Note that the only difference
+    // between this and my_info is that my_info's sin_addr represents
+    // this IP address, whereas we want INADDR_ANY
+    struct sockaddr_in servaddr = {0};
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    servaddr.sin_port = my_info->ip.sin_port;
+    if (bind(server_sock, (struct sockaddr *) &servaddr, sizeof(my_info->ip)) < 0)
+        error(-1, errno, "Could not bind to supplied local port %d", ntohs(my_info->ip.sin_port));
+
     //delete the local_h linked list
     freeaddrinfo(local_h);
 
@@ -327,29 +341,16 @@ void *broadcast_channel::start_server(void *args) {
 }
 
 void broadcast_channel::accept_connections() {
-    int server_sock, client_sock;
+    int client_sock;
     int bytes_received;
     struct message in_msg, out_msg;
-    struct sockaddr_in servaddr;
     struct sockaddr_in client_addr;
     socklen_t client_len;
     decoder *msg_dec = NULL;
     struct client_info *peer_info;
 
 
-    // Set up the socket
-    server_sock = make_socket();
-
-    // Put together a sockaddr for us.  Note that the only difference
-    // between this and my_info is that my_info's sin_addr represents
-    // this IP address, whereas we want INADDR_ANY
-    memset(&servaddr, 0, sizeof(servaddr));
-    servaddr.sin_family = AF_INET;
-    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-    servaddr.sin_port = my_info->ip.sin_port;
-    if (bind(server_sock, (struct sockaddr *) &servaddr, sizeof(my_info->ip)) < 0)
-        error(-1, errno, "Could not bind to socket");
-
+    //Start listening on the chunk receiver socket
     listen(server_sock, 10);
 
     bool running = true;
