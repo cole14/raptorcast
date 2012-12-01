@@ -80,6 +80,8 @@ class broadcast_channel {
         static void *start_server(void *);
         // Wait for and handle network requests from other peers
         void accept_connections();
+        // Deal with a chunk of a message
+        void handle_chunk(int client_sock, struct message *in_msg);
         // Send a list of chunks to every peer in the group
         void forward(struct message *msg_list, size_t num_msg);
 
