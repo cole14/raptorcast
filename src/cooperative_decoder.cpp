@@ -48,7 +48,7 @@ void cooperative_decoder::add_chunk (unsigned char * d, size_t len, unsigned int
     printf("\n");
 }
 
-bool cooperative_decoder::is_done (){
+bool cooperative_decoder::is_ready (){
     if (msg_desc == NULL || msg_desc->total_chunks == 0) {
         return false;
     } else {
@@ -56,8 +56,12 @@ bool cooperative_decoder::is_done (){
     }
 }
 
+bool cooperative_decoder::is_finished (){
+    return is_ready();
+}
+
 unsigned char * cooperative_decoder::get_message (){
-    if (!is_done()) {
+    if (!is_ready()) {
         return NULL;
     } else if (decoded_data != NULL) {
         return decoded_data;
@@ -82,7 +86,7 @@ unsigned char * cooperative_decoder::get_message (){
 }
 
 size_t cooperative_decoder::get_len (){
-    if (!is_done()) {
+    if (!is_ready()) {
         return 0;
     } else {
         return data_len;

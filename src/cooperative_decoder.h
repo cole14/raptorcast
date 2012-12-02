@@ -11,7 +11,8 @@ class cooperative_decoder : public decoder {
         cooperative_decoder();
         ~cooperative_decoder();
         void add_chunk (unsigned char * data, size_t len, unsigned int chunk_id);
-        bool is_done ();
+        bool is_ready ();
+        bool is_finished ();
         unsigned char * get_message ();
         size_t get_len ();
         bool should_forward () { return true; }

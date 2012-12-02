@@ -16,6 +16,8 @@
 #include "client_server_decoder.h"
 #include "cooperative_encoder.h"
 #include "cooperative_decoder.h"
+#include "traditional_encoder.h"
+#include "traditional_decoder.h"
 
 //gethostbyname error num
 extern int h_errno;
@@ -335,6 +337,7 @@ void broadcast_channel::accept_connections() {
     socklen_t client_len;
     decoder *msg_dec = NULL;
     struct client_info *peer_info;
+    unsigned long dec_id = 0;
 
 
     // Set up the socket
@@ -356,6 +359,7 @@ void broadcast_channel::accept_connections() {
     while (running) {
         size_t num_msg = 1;
         struct message *msg_list = NULL;
+        bool deliver_msg = false;
         fprintf(stdout, "Server waiting...\n");
 
         // Wait for a connection
@@ -411,6 +415,7 @@ void broadcast_channel::accept_connections() {
                 break;
 
             case CLIENT_SERVER:
+            case TRAD:
             case COOP:
                 if (in_msg.cli_id == my_info->id)
                     continue;  // It's just a bump of one of our own messages
@@ -420,17 +425,19 @@ void broadcast_channel::accept_connections() {
                 memcpy(&msg_list[0], &in_msg, sizeof(struct message));
 
                 fprintf(stdout, "received %s message\n", msg_t_to_str(in_msg.type));
-                if(decoders.find(in_msg.msg_id) == decoders.end()){
+                dec_id = (((unsigned long)in_msg.cli_id) << 32) | (unsigned long)in_msg.msg_id;
+                if(decoders.find(dec_id) == decoders.end()){
                     msg_dec = get_decoder(in_msg.type);
-                    decoders[in_msg.msg_id] = msg_dec;
+                    decoders[dec_id] = msg_dec;
                 }
-                msg_dec = decoders[in_msg.msg_id];
+                msg_dec = decoders[dec_id];
+                deliver_msg = !msg_dec->is_ready();
 
                 // Add the chunk we just got
                 msg_dec->add_chunk(in_msg.data, in_msg.data_len, in_msg.chunk_id);
                 dump_buf(in_msg.data, in_msg.data_len);
 
-                // Keep reading chunks and adding them until the bcast is done
+                // Keep reading chunks and adding them until the transmission is done
                 while (in_msg.data_len != 0) {
                     if ((bytes_received = recv(client_sock, &in_msg, sizeof(in_msg), 0)) < 0)
                         error(-1, errno, "Could not receive client message");
@@ -451,14 +458,15 @@ void broadcast_channel::accept_connections() {
                 }
 
                 // Print the message and clean up
-                if(msg_dec->is_done()){
-                    listener->receive(msg_dec->get_message(), msg_dec->get_len());
-                    decoders.erase(in_msg.msg_id);
+                if(msg_dec->is_ready()){
+                    if(deliver_msg)
+                        listener->receive(msg_dec->get_message(), msg_dec->get_len());
+                    if(msg_dec->is_finished())
+                        decoders.erase(dec_id);
                 }
                 free(msg_list);
 
                 break;
-            case TRAD:
             case RAPTOR:
                 // Not implemented
                 fprintf(stderr, "Oh Noes! We got a message we don't know what to do with...\n");
@@ -539,6 +547,7 @@ decoder *broadcast_channel::get_decoder(msg_t algo) {
         case COOP:
             return new cooperative_decoder();
         case TRAD:
+            return new traditional_decoder();
         case RAPTOR:
             return NULL;  // Not yet implemented
         default:
@@ -553,6 +562,8 @@ encoder *broadcast_channel::get_encoder(msg_t algo){
             return new client_server_encoder();
         case COOP:
             return new cooperative_encoder();
+        case TRAD:
+            return new traditional_encoder();
 
         default: return NULL;
     }

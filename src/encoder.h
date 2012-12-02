@@ -1,6 +1,8 @@
 #ifndef __ENCODER_H
 #define __ENCODER_H
 
+#include <stddef.h>
+
 class encoder {
     public:
         virtual ~encoder() { }
