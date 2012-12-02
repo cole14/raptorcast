@@ -6,7 +6,7 @@
 #include "client_server_encoder.h"
 
 client_server_encoder::client_server_encoder()
-:data(NULL),data_pos(0),data_len(0),chunk_len(0)
+:data(NULL),data_pos(0),data_len(0),next_chunk_id(0),chunk_len(0)
 { }
 
 void client_server_encoder::init(unsigned char *d, size_t dl, size_t cl, size_t np){
@@ -43,9 +43,11 @@ int client_server_encoder::generate_chunk(unsigned char **dest, unsigned int *ch
     data_pos += len;
 
     *dest = chunk;
+    *chunk_id = next_chunk_id++;
     return len;
 }
 
 void client_server_encoder::next_stream() {
     data_pos = 0;
+    next_chunk_id = 0;
 }

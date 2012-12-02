@@ -181,7 +181,7 @@ void client::run_cli() {
             break;
 
         } else if (strcmp(line_buf, "help") == 0 || strcmp(line_buf, "h") == 0) {
-            printf("Commands: send [t]ext, send [f]ile, [p]eers, [q]uit, [h]elp\n");
+            printf("Commands: send [t]ext, send [f]ile, [p]eers, [d]ebug-toggle, [q]uit, [h]elp\n");
 
         } else if (strcmp(line_buf, "send text") == 0 || strcmp(line_buf, "t") == 0) {
             algorithm = get_alg();
@@ -225,6 +225,8 @@ void client::run_cli() {
             printf("Sending file...\n");
             chan->broadcast(algorithm, file_contents, (size_t)siz);
 
+        } else if (strcmp(line_buf, "debug-toggle") == 0 || strcmp(line_buf, "d") == 0) {
+            printf("Debug mode is now %s\n", (chan->toggle_debug_mode()) ? "on" : "off");
         } else {
             printf("Invalid command: %s\n", line_buf);
         }

@@ -12,12 +12,6 @@
 #include <unistd.h>
 
 #include "broadcast_channel.h"
-#include "client_server_encoder.h"
-#include "client_server_decoder.h"
-#include "cooperative_encoder.h"
-#include "cooperative_decoder.h"
-#include "traditional_encoder.h"
-#include "traditional_decoder.h"
 
 //gethostbyname error num
 extern int h_errno;
@@ -55,6 +49,17 @@ const char * msg_t_to_str(msg_t type) {
     }
 }
 
+const char *cli_to_str(struct client_info *cli) {
+    const int max_size = 256;
+    static char str[max_size];
+    snprintf(str, max_size, "%u:%s at %s:%d",
+            cli->id,
+            cli->name,
+            inet_ntoa(cli->ip.sin_addr),
+            ntohs(cli->ip.sin_port));
+    return str;
+}
+
 broadcast_channel::~broadcast_channel(void)
 {
     //Delete the group_set
@@ -68,6 +73,7 @@ broadcast_channel::broadcast_channel(std::string name, std::string port, channel
     //Init members
     listener = lstnr;
     msg_counter = 0;
+    debug_mode = false;
 
     //Allocate the client_info struct
     my_info = (struct client_info *)calloc(1, sizeof(struct client_info));
@@ -92,6 +98,20 @@ broadcast_channel::broadcast_channel(std::string name, std::string port, channel
     }
     my_info->ip = *((sockaddr_in *)local_h->ai_addr);
 
+    //Make sure we can use the supplied info and set up the
+    //chunk receiver socket (don't start listenening though).
+    server_sock = make_socket();
+
+    // Put together a sockaddr for us.  Note that the only difference
+    // between this and my_info is that my_info's sin_addr represents
+    // this IP address, whereas we want INADDR_ANY
+    struct sockaddr_in servaddr = {0};
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    servaddr.sin_port = my_info->ip.sin_port;
+    if (bind(server_sock, (struct sockaddr *) &servaddr, sizeof(my_info->ip)) < 0)
+        error(-1, errno, "Could not bind to supplied local port %d", ntohs(my_info->ip.sin_port));
+
     //delete the local_h linked list
     freeaddrinfo(local_h);
 
@@ -113,6 +133,10 @@ client_info *broadcast_channel::get_peer_by_id(unsigned int id) {
         }
     }
     return NULL;
+}
+
+bool broadcast_channel::toggle_debug_mode(){
+    return (debug_mode = !debug_mode);
 }
 
 int broadcast_channel::make_socket(){
@@ -150,11 +174,7 @@ void broadcast_channel::print_peers(int indent) {
     for (unsigned int i = 0; i < group_set.size(); i++) {
         peer = group_set[i];
         for(int i = 0; i < indent; i++) printf("%s", "    ");
-        printf("Peer %d: %s -> %s:%d\n",
-                peer->id,
-                peer->name,
-                inet_ntoa(peer->ip.sin_addr),
-                ntohs(peer->ip.sin_port));
+        printf("Peer %s\n", cli_to_str(peer));
     }
 }
 
@@ -238,7 +258,7 @@ bool broadcast_channel::notify_peers() {
     // so no check is needed
     for (int i = 0; i < (int) group_set.size(); i++) {
         peer =  group_set[i];
-        fprintf(stdout, "Notifying peer %s.\n", peer->name);
+        fprintf(stdout, "Notifying peer %s.\n", cli_to_str(peer));
 
         // Setup the socket
         sock = make_socket();
@@ -246,7 +266,7 @@ bool broadcast_channel::notify_peers() {
         // Open socket
         if (connect(sock, (struct sockaddr *) &peer->ip,
                     sizeof(peer->ip)) < 0)
-            error(-1, errno, "Could not connect to peer %s", peer->name);
+            error(-1, errno, "Could not connect to peer %s", cli_to_str(peer));
 
         // Construct the outgoing message
         construct_message(PEER, &out_msg, my_info, sizeof(struct client_info));
@@ -286,7 +306,7 @@ bool broadcast_channel::send_peer_list(int sock, struct client_info *target) {
     // Next, send the current list of peers
     for (int i = 0; i < (int) group_set.size(); i++) {
         peer =  group_set[i];
-        fprintf(stdout, "Sending info for peer %s.\n", peer->name);
+        fprintf(stdout, "Sending info for peer %s.\n", cli_to_str(peer));
 
         // Construct the outgoing message
         construct_message(PEER, &out_msg, peer, sizeof(struct client_info));
@@ -308,11 +328,7 @@ void broadcast_channel::add_peer(struct message *in_msg) {
     memcpy(peer_info, &in_msg->data, sizeof(struct client_info));
     group_set.push_back(peer_info);
 
-    fprintf(stdout, "received peer request!  Name %s, id %u, host %s, port %d\n",
-            peer_info->name,
-            peer_info->id,
-            inet_ntoa(peer_info->ip.sin_addr),
-            ntohs(peer_info->ip.sin_port));
+    fprintf(stdout, "received peer request! Peer %s\n", cli_to_str(peer_info));
 }
 
 unsigned int broadcast_channel::get_unused_id() {
@@ -329,37 +345,19 @@ void *broadcast_channel::start_server(void *args) {
 }
 
 void broadcast_channel::accept_connections() {
-    int server_sock, client_sock;
+    int client_sock;
     int bytes_received;
     struct message in_msg, out_msg;
-    struct sockaddr_in servaddr;
     struct sockaddr_in client_addr;
     socklen_t client_len;
-    decoder *msg_dec = NULL;
     struct client_info *peer_info;
-    unsigned long dec_id = 0;
 
 
-    // Set up the socket
-    server_sock = make_socket();
-
-    // Put together a sockaddr for us.  Note that the only difference
-    // between this and my_info is that my_info's sin_addr represents
-    // this IP address, whereas we want INADDR_ANY
-    memset(&servaddr, 0, sizeof(servaddr));
-    servaddr.sin_family = AF_INET;
-    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-    servaddr.sin_port = my_info->ip.sin_port;
-    if (bind(server_sock, (struct sockaddr *) &servaddr, sizeof(my_info->ip)) < 0)
-        error(-1, errno, "Could not bind to socket");
-
+    //Start listening on the chunk receiver socket
     listen(server_sock, 10);
 
     bool running = true;
     while (running) {
-        size_t num_msg = 1;
-        struct message *msg_list = NULL;
-        bool deliver_msg = false;
         fprintf(stdout, "Server waiting...\n");
 
         // Wait for a connection
@@ -389,7 +387,7 @@ void broadcast_channel::accept_connections() {
 
             case QUIT:
                 peer_info = (struct client_info *) in_msg.data;
-                fprintf(stdout, "received quit message from %s\n", peer_info->name);
+                fprintf(stdout, "received quit message from %s\n", cli_to_str(peer_info));
                 if (peer_info->id == my_info->id) {
                     // Shutdown message from the CLI thread
                     fprintf(stdout, "Shutting down receive thread\n");
@@ -406,65 +404,15 @@ void broadcast_channel::accept_connections() {
                 if (index < (int) group_set.size()) {
                     group_set.erase(group_set.begin() + index);
                 } else {
-                    fprintf(stderr, "received quit notice from an unknown peer: "
-                            "Name %s, id %u, ip %s, port %d\n",
-                            peer_info->name, peer_info->id,
-                            inet_ntoa(peer_info->ip.sin_addr),
-                            ntohs(peer_info->ip.sin_port));
+                    fprintf(stderr, "received quit notice from an unknown peer: %s",
+                            cli_to_str(peer_info));
                 }
                 break;
 
             case CLIENT_SERVER:
             case TRAD:
             case COOP:
-                if (in_msg.cli_id == my_info->id)
-                    continue;  // It's just a bump of one of our own messages
-
-                // Keep track of the messages we've gotten, so we can forward them along
-                msg_list = (struct message *)realloc(msg_list, sizeof(struct message));
-                memcpy(&msg_list[0], &in_msg, sizeof(struct message));
-
-                fprintf(stdout, "received %s message\n", msg_t_to_str(in_msg.type));
-                dec_id = (((unsigned long)in_msg.cli_id) << 32) | (unsigned long)in_msg.msg_id;
-                if(decoders.find(dec_id) == decoders.end()){
-                    msg_dec = get_decoder(in_msg.type);
-                    decoders[dec_id] = msg_dec;
-                }
-                msg_dec = decoders[dec_id];
-                deliver_msg = !msg_dec->is_ready();
-
-                // Add the chunk we just got
-                msg_dec->add_chunk(in_msg.data, in_msg.data_len, in_msg.chunk_id);
-                dump_buf(in_msg.data, in_msg.data_len);
-
-                // Keep reading chunks and adding them until the transmission is done
-                while (in_msg.data_len != 0) {
-                    if ((bytes_received = recv(client_sock, &in_msg, sizeof(in_msg), 0)) < 0)
-                        error(-1, errno, "Could not receive client message");
-
-                    num_msg++;
-                    msg_list = (struct message *)realloc(msg_list, num_msg * sizeof(struct message));
-                    memcpy(&msg_list[num_msg-1], &in_msg, sizeof(struct message));
-
-                    msg_dec->add_chunk(in_msg.data, in_msg.data_len, in_msg.chunk_id);
-                    fprintf(stdout, "dumping buf\n");
-                    dump_buf(in_msg.data, in_msg.data_len);
-                }
-
-                // Forward the message on to the other peers
-                if (msg_dec->should_forward() &&
-                        msg_list->ttl > 0) {
-                    forward(msg_list, num_msg);
-                }
-
-                // Print the message and clean up
-                if(msg_dec->is_ready()){
-                    if(deliver_msg)
-                        listener->receive(msg_dec->get_message(), msg_dec->get_len());
-                    if(msg_dec->is_finished())
-                        decoders.erase(dec_id);
-                }
-                free(msg_list);
+                handle_chunk(client_sock, &in_msg);
 
                 break;
             case RAPTOR:
@@ -480,6 +428,65 @@ void broadcast_channel::accept_connections() {
             error(-1, errno, "Error closing peer socket");
 
     }
+}
+
+void broadcast_channel::handle_chunk(int client_sock, struct message *in_msg) {
+    struct message *msg_list = NULL;
+    size_t num_msg = 1;
+    decoder *msg_dec = NULL;
+    size_t bytes_received = 0;
+    bool deliver_msg = false;
+    unsigned long dec_id = 0;
+
+    if (in_msg->cli_id == my_info->id)
+        return;  // It's just a bump of one of our own messages
+
+    // Keep track of the messages we've gotten, so we can forward them along
+    msg_list = (struct message *)realloc(msg_list, sizeof(struct message));
+    memcpy(&msg_list[0], in_msg, sizeof(struct message));
+
+    fprintf(stdout, "received %s message\n", msg_t_to_str(in_msg->type));
+
+    // Get a decoder for this message
+    dec_id = (((unsigned long)in_msg->cli_id) << 32) | (unsigned long)in_msg->msg_id;
+    if(decoders.find(dec_id) == decoders.end()){
+        msg_dec = get_decoder(in_msg->type);
+        decoders[dec_id] = msg_dec;
+    }
+    msg_dec = decoders[dec_id];
+    deliver_msg = !msg_dec->is_ready();
+
+    // Add the chunk we just got
+    msg_dec->add_chunk(in_msg->data, in_msg->data_len, in_msg->chunk_id);
+    dump_buf(in_msg->data, in_msg->data_len);
+
+    // Keep reading chunks and adding them until the bcast is done
+    while (in_msg->data_len != 0) {
+        if ((bytes_received = recv(client_sock, in_msg, sizeof(struct message), 0)) < 0)
+            error(-1, errno, "Could not receive client message");
+
+        num_msg++;
+        msg_list = (struct message *)realloc(msg_list, num_msg * sizeof(struct message));
+        memcpy(&msg_list[num_msg-1], in_msg, sizeof(struct message));
+
+        msg_dec->add_chunk(in_msg->data, in_msg->data_len, in_msg->chunk_id);
+        fprintf(stdout, "dumping buf\n");
+        dump_buf(in_msg->data, in_msg->data_len);
+    }
+
+    // Forward the message on to the other peers
+    if (msg_dec->should_forward() && msg_list->ttl > 0) {
+        forward(msg_list, num_msg);
+    }
+
+    // Print the message and clean up
+    if(msg_dec->is_ready()){
+        if(deliver_msg)
+            listener->receive(msg_dec->get_message(), msg_dec->get_len());
+        if(msg_dec->is_finished())
+            decoders.erase(dec_id);
+    }
+    free(msg_list);
 }
 
 bool broadcast_channel::join(std::string hostname, int port){
@@ -515,7 +522,7 @@ void broadcast_channel::quit() {
     // it provides an easy way to tell it to shut down.
     for (int i = 0; i < (int)group_set.size(); i++) {
         peer =  group_set[i];
-        fprintf(stdout, "Notifying peer %s.\n", peer->name);
+        fprintf(stdout, "Notifying peer %s.\n", cli_to_str(peer));
 
         // Setup the socket
         sock = make_socket();
@@ -523,7 +530,7 @@ void broadcast_channel::quit() {
         // Open socket
         if (connect(sock, (struct sockaddr *) &peer->ip,
                     sizeof(peer->ip)) < 0)
-            error(-1, errno, "Could not connect to peer %s", peer->name);
+            error(-1, errno, "Could not connect to peer %s", cli_to_str(peer));
 
         // Construct the outgoing message
         construct_message(QUIT, &out_msg, my_info, sizeof(struct client_info));
@@ -538,35 +545,6 @@ void broadcast_channel::quit() {
     }
 
     pthread_join(receiver_thread, NULL);
-}
-
-decoder *broadcast_channel::get_decoder(msg_t algo) {
-    switch (algo) {
-        case CLIENT_SERVER:
-            return new client_server_decoder();
-        case COOP:
-            return new cooperative_decoder();
-        case TRAD:
-            return new traditional_decoder();
-        case RAPTOR:
-            return NULL;  // Not yet implemented
-        default:
-            return NULL;
-    }
-    return NULL;
-}
-
-encoder *broadcast_channel::get_encoder(msg_t algo){
-    switch(algo){
-        case CLIENT_SERVER:
-            return new client_server_encoder();
-        case COOP:
-            return new cooperative_encoder();
-        case TRAD:
-            return new traditional_encoder();
-
-        default: return NULL;
-    }
 }
 
 void broadcast_channel::broadcast(msg_t algo, unsigned char *buf, size_t buf_len){
@@ -601,7 +579,7 @@ void broadcast_channel::broadcast(msg_t algo, unsigned char *buf, size_t buf_len
         // Open socket
         if (connect(sock, (struct sockaddr *) &peer->ip,
                     sizeof(peer->ip)) < 0)
-            error(-1, errno, "Could not connect to peer %s", peer->name);
+            error(-1, errno, "Could not connect to peer %s", cli_to_str(peer));
 
         while((chunk_size = msg_enc->generate_chunk(&chunk, &chunk_id)) > 0 &&
                 chunk != NULL){
@@ -668,7 +646,7 @@ void broadcast_channel::forward(struct message *msg_list, size_t num_msg) {
         // Open socket
         if (connect(sock, (struct sockaddr *) &peer->ip,
                     sizeof(peer->ip)) < 0)
-            error(-1, errno, "Could not connect to peer %s", peer->name);
+            error(-1, errno, "Could not connect to peer %s", cli_to_str(peer));
 
         // Send all messages
         for (out_msg = msg_list; out_msg < msg_list + num_msg; out_msg++) {

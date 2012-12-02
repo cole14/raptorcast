@@ -12,36 +12,12 @@
 #include "decoder.h"
 #include "encoder.h"
 
-#define PACKET_LEN 256
-#define MAX_NAME_LEN 128  // Has to fit w/in PACKET_LEN
+#include "message_types.h"
 
 struct client_info {
     struct sockaddr_in ip;
     unsigned int id;
     char name[MAX_NAME_LEN];
-};
-
-enum msg_t {
-    // Functional messages
-    JOIN,   // Initial message sent to known host
-    PEER,   // Tell about a peer (this or another)
-    READY,
-    QUIT,
-    // Broadcast algorithms
-    CLIENT_SERVER,
-    TRAD,
-    COOP,
-    RAPTOR
-};
-
-struct message {
-    msg_t type;
-    unsigned int cli_id;
-    unsigned int msg_id;
-    unsigned int chunk_id;
-    unsigned int ttl;
-    size_t data_len;
-    unsigned char data[PACKET_LEN];
 };
 
 class broadcast_channel {
@@ -64,6 +40,9 @@ class broadcast_channel {
         // Notify peers that we're quitting, clean up connections, etc.
         void quit();
 
+        // Toggle the debug mode for this broadcast channel.
+        bool toggle_debug_mode();
+
     private:
         // The client info for this broadcast_channel
         struct client_info *my_info;
@@ -73,10 +52,14 @@ class broadcast_channel {
         std::map< unsigned long, decoder * > decoders;
         // The chunk receiver thread
         pthread_t receiver_thread;
+        // The chunk receiver socket
+        int server_sock;
         // The application listening on this channel
         channel_listener *listener;
         // The monotonically increasing unique message id counter for this sender
         unsigned long msg_counter;
+        // Flag to specify whether to artifically crash at specified points
+        bool debug_mode;
 
         // Contact a known host and get a list of all peers
         bool get_peer_list(std::string hostname, int port);
@@ -97,13 +80,10 @@ class broadcast_channel {
         static void *start_server(void *);
         // Wait for and handle network requests from other peers
         void accept_connections();
+        // Deal with a chunk of a message
+        void handle_chunk(int client_sock, struct message *in_msg);
         // Send a list of chunks to every peer in the group
         void forward(struct message *msg_list, size_t num_msg);
-
-        // Get an encoder object for message type 'algo'
-        encoder *get_encoder(msg_t algo);
-        // Construct a decoder of the appropriate type
-        decoder *get_decoder(msg_t);
 
         // Put together a message containing the given data
         void construct_message(msg_t type, struct message *dest, const void *src, size_t n);

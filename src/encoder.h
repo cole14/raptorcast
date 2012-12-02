@@ -1,7 +1,7 @@
 #ifndef __ENCODER_H
 #define __ENCODER_H
 
-#include <stddef.h>
+#include "message_types.h"
 
 class encoder {
     public:
@@ -10,5 +10,8 @@ class encoder {
         virtual void init(unsigned char *data, size_t data_len, size_t chunk_len, size_t num_peers) = 0;
         virtual void next_stream() = 0;
 };
+
+// Get an encoder object for message type 'algo'
+encoder *get_encoder(msg_t algo);
 
 #endif /* __ENCODER_H */
