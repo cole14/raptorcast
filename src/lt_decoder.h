@@ -6,6 +6,7 @@
 
 #include "decoder.h"
 #include "lt_decoder.h"
+#include "lt_encoder.h"
 
 class lt_decoder : public decoder {
     public:
@@ -31,13 +32,15 @@ class lt_decoder : public decoder {
             unsigned char *data;
         };
 
-        void build_block_list(struct Chunk *chunk);
-        void reduce (struct Chunk *chunk, struct Block *block);
-        void add_block (struct Chunk *chunk);
+        struct Block *chunk_to_block(Chunk *chunk);
+
+        void build_block_list(Chunk *chunk);
+        void reduce (Chunk *chunk, Block *block);
+        void add_block (Chunk *chunk);
         void clean_chunks ();
 
-        std::map< unsigned int, struct Block * > decoded_blocks;
-        std::vector< struct Chunk * > chunk_list;
+        std::map< unsigned int, Block * > decoded_blocks;
+        std::vector< Chunk * > chunk_list;
 
         struct lt_descriptor *msg_desc;
 };

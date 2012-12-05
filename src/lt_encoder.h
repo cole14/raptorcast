@@ -10,7 +10,7 @@ struct lt_descriptor {
     size_t num_peers;
     size_t chunk_len;
     int seed;
-}
+};
 
 class lt_encoder : public encoder {
     public :

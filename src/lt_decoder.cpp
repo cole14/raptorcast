@@ -1,3 +1,7 @@
+#include <error.h>
+#include <errno.h>
+#include <queue>
+
 #include "lt_decoder.h"
 #include "logger.h"
 
@@ -24,7 +28,7 @@ void lt_decoder::add_chunk (unsigned char * data, size_t len, unsigned int chunk
     //   the message descriptor is always the first chunk in a transmission.
     //   So, we __should__ be good to go.  Check anyway.
     if (msg_desc == NULL)
-        error(-1, "Recieved lt chunk %u before reading header", chunk_id);
+        error(-1, EIO, "Recieved lt chunk %u before reading header", chunk_id);
 
     // OK, so now we know that this is neither the message descriptor
     //   nor a transmission terminator, and that we've already
@@ -32,12 +36,12 @@ void lt_decoder::add_chunk (unsigned char * data, size_t len, unsigned int chunk
     glob_log.log(3, "Read lt chunk %u!\n", chunk_id);
 
     Chunk *chunk = new Chunk();
-    chunk.id = chunk_id;
+    chunk->id = chunk_id;
     chunk->data = data;
     build_block_list(chunk);
     chunk_list.push_back(chunk);
 
-    for (unsigned int i = 0; i < total_chunks; i++) {
+    for (unsigned int i = 0; i < msg_desc->total_chunks; i++) {
         if (decoded_blocks.find(i) != decoded_blocks.end())   // Fuck C++
             reduce(chunk, decoded_blocks[i]);
     }
@@ -48,7 +52,7 @@ void lt_decoder::add_chunk (unsigned char * data, size_t len, unsigned int chunk
 }
 
 void lt_decoder::build_block_list(Chunk *chunk) {
-    // Imitate the random number generator up to where we figure
+    // TODO: Imitate the random number generator up to where we figure
     // out what blocks go into the chunk corresponding to this
     // chunk's id
 }
@@ -59,8 +63,8 @@ void lt_decoder::build_block_list(Chunk *chunk) {
  */
 void lt_decoder::reduce (Chunk *chunk, Block *block) {
     int match = -1;
-    for (int i = 0; i < chunk.block_list.size(); i++) {
-        if (chunk.block_list[i] == block.id) {
+    for (unsigned int i = 0; i < chunk->block_list.size(); i++) {
+        if (chunk->block_list[i] == block->id) {
             match = i;
             break;
         }
@@ -71,13 +75,27 @@ void lt_decoder::reduce (Chunk *chunk, Block *block) {
     }
 
     glob_log.log(3, "Found a match! Reducing chunk %d by block %d\n",
-            chunk.id, block.id);
+            chunk->id, block->id);
 
-    chunk.block_list.erase(chunk.block_list.begin()+match);
-    chunk.degree--;
-    for (int pos = 0; pos < chunk_len; pos++) {
+    chunk->block_list.erase(chunk->block_list.begin()+match);
+    chunk->degree--;
+    for (unsigned int pos = 0; pos < msg_desc->chunk_len; pos++) {
         chunk->data[pos] ^= block->data[pos];
     }
+}
+
+/*
+ * Takes a chunk that has been fully reduced (meaning it has
+ *   degree = block_list.size() == 1) and builds a block out
+ *   of it.
+ */
+lt_decoder::Block *lt_decoder::chunk_to_block(Chunk *chunk) {
+    if (chunk->block_list.size() != 1)
+        return NULL;
+    Block *block = new Block();
+    block->data = chunk->data;
+    block->id = chunk->block_list[0];
+    return block;
 }
 
 /*
@@ -89,13 +107,13 @@ void lt_decoder::add_block (Chunk *in_chunk){
     std::queue< Chunk * > work_queue;
     for (work_queue.push(in_chunk); !work_queue.empty(); work_queue.pop()) {
         Block *block = chunk_to_block(work_queue.front());
-        for (int i = 0; i < chunk_list.size(); i++) {
+        for (unsigned int i = 0; i < chunk_list.size(); i++) {
             Chunk *chunk = chunk_list[i];
             reduce(chunk, block);
-            if (chunk.degree == 1)
+            if (chunk->degree == 1)
                 work_queue.push(chunk);
         }
-        decoded_blocks[block.id] = block;
+        decoded_blocks[block->id] = block;
         clean_chunks();
     }
 }
