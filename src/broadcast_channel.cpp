@@ -13,17 +13,21 @@
 
 #include "broadcast_channel.h"
 
+#include "logger.h"
+
 //gethostbyname error num
 extern int h_errno;
 extern int errno;
 
-void dump_buf(unsigned char *buf, size_t len){
+void dump_buf(int level, void *b, size_t len){
+    unsigned char *buf = (unsigned char *)b;
+    glob_log.log(level+1, "dumping buf:");
     for(int i = 0; i < (int)len; i++){
-        fprintf(stdout, "%02X ", buf[i]);
+        glob_log.log(level, "%02X ", buf[i]);
         if((i+1) % 16 == 0)
-            fprintf(stdout, "\n");
+            glob_log.log(level, "\n");
     }
-    fprintf(stdout, "\n");
+    glob_log.log(level, "\n");
 }
 
 const char * msg_t_to_str(msg_t type) {
@@ -124,11 +128,11 @@ broadcast_channel::broadcast_channel(std::string name, std::string port, channel
     //for debugging purposes:
     getnameinfo((sockaddr*)&(my_info->ip), sizeof(my_info->ip),
             local_h_name, 256, NULL, 0, NI_NOFQDN);
-    fprintf(stdout, "Successfully initialized broadcast channel associated on %s:%d (",
+    glob_log.log(3, "Successfully initialized broadcast channel associated on %s:%d (",
             local_h_name, ntohs(my_info->ip.sin_port));
     getnameinfo((sockaddr*)&(my_info->ip), sizeof(my_info->ip),
             local_h_name, 256, NULL, 0, NI_NUMERICHOST);
-    fprintf(stdout, "%s:%d)\n", local_h_name, ntohs(my_info->ip.sin_port));
+    glob_log.log(3, "%s:%d)\n", local_h_name, ntohs(my_info->ip.sin_port));
 
 }
 
@@ -179,8 +183,8 @@ void broadcast_channel::print_peers(int indent) {
     struct client_info *peer;
     for (unsigned int i = 0; i < group_set.size(); i++) {
         peer = group_set[i];
-        for(int i = 0; i < indent; i++) printf("%s", "    ");
-        printf("Peer %s\n", cli_to_str(peer));
+        for(int i = 0; i < indent; i++) glob_log.log(1, "%s", "    ");
+        glob_log.log(1, "Peer %s\n", cli_to_str(peer));
     }
 }
 
@@ -228,7 +232,7 @@ bool broadcast_channel::get_peer_list(std::string hostname, int port) {
     peer_info = (struct client_info *) in_msg.data;
     if (strcmp(peer_info->name, my_info->name) != 0)
         error(-1, EIO, "Bootstrap response gave bad name");
-    fprintf(stdout, "Got ID %u from bootstrap\n", peer_info->id);
+    glob_log.log(3, "Got ID %u from bootstrap\n", peer_info->id);
     my_info->id = peer_info->id;
 
     // Following 0 or more messages will represent network peers
@@ -264,7 +268,7 @@ bool broadcast_channel::notify_peers() {
     // so no check is needed
     for (int i = 0; i < (int) group_set.size(); i++) {
         peer =  group_set[i];
-        fprintf(stdout, "Notifying peer %s.\n", cli_to_str(peer));
+        glob_log.log(3, "Notifying peer %s.\n", cli_to_str(peer));
 
         // Setup the socket
         sock = make_socket();
@@ -312,7 +316,7 @@ bool broadcast_channel::send_peer_list(int sock, struct client_info *target) {
     // Next, send the current list of peers
     for (int i = 0; i < (int) group_set.size(); i++) {
         peer =  group_set[i];
-        fprintf(stdout, "Sending info for peer %s.\n", cli_to_str(peer));
+        glob_log.log(3, "Sending info for peer %s.\n", cli_to_str(peer));
 
         // Construct the outgoing message
         construct_message(PEER, &out_msg, peer, sizeof(struct client_info));
@@ -334,7 +338,7 @@ void broadcast_channel::add_peer(struct message *in_msg) {
     memcpy(peer_info, &in_msg->data, sizeof(struct client_info));
     group_set.push_back(peer_info);
 
-    fprintf(stdout, "received peer request! Peer %s\n", cli_to_str(peer_info));
+    glob_log.log(3, "received peer request! Peer %s\n", cli_to_str(peer_info));
 }
 
 unsigned int broadcast_channel::get_unused_id() {
@@ -368,13 +372,13 @@ void broadcast_channel::accept_connections() {
 
     bool running = true;
     while (running) {
-        fprintf(stdout, "Server waiting...\n");
+        glob_log.log(3, "Server waiting...\n");
 
         // Wait for a connection
         client_sock = accept(server_sock, (struct sockaddr *)&client_addr, &client_len);
         if (client_sock < 0)
             error(-1, errno, "Could not accept client.");
-        fprintf(stdout, "accepted client!\n");
+        glob_log.log(3, "accepted client!\n");
 
         // Handle the request
         if ((bytes_received = recv(client_sock, &in_msg, sizeof(in_msg), 0)) < 0)
@@ -397,10 +401,10 @@ void broadcast_channel::accept_connections() {
 
             case QUIT:
                 peer_info = (struct client_info *) in_msg.data;
-                fprintf(stdout, "received quit message from %s\n", cli_to_str(peer_info));
+                glob_log.log(3, "received quit message from %s\n", cli_to_str(peer_info));
                 if (peer_info->id == my_info->id) {
                     // Shutdown message from the CLI thread
-                    fprintf(stdout, "Shutting down receive thread\n");
+                    glob_log.log(3, "Shutting down receive thread\n");
                     running = false;
                     break;
                 }
@@ -414,7 +418,7 @@ void broadcast_channel::accept_connections() {
                 if (index < (int) group_set.size()) {
                     group_set.erase(group_set.begin() + index);
                 } else {
-                    fprintf(stderr, "received quit notice from an unknown peer: %s",
+                    glob_log.log(3, "received quit notice from an unknown peer: %s",
                             cli_to_str(peer_info));
                 }
                 break;
@@ -427,8 +431,8 @@ void broadcast_channel::accept_connections() {
                 time_info = start_times[confirm_msgid];
                 time_info.first -= 1;
                 if(time_info.first == 0){
-                    fprintf(stdout, "Received final confirmation message for msg %u\n", confirm_msgid);
-                    fprintf(stdout, "Took %lu microseconds!\n", 
+                    glob_log.log(2, "Received final confirmation message for msg %u\n", confirm_msgid);
+                    glob_log.log(2, "Took %lu microseconds!\n", 
                         (unsigned long)(cur_time.tv_nsec - time_info.second.tv_nsec) / 1000);
                 }
                 start_times[confirm_msgid] = time_info;
@@ -442,7 +446,7 @@ void broadcast_channel::accept_connections() {
                 break;
             case RAPTOR:
                 // Not implemented
-                fprintf(stderr, "Oh Noes! We got a message we don't know what to do with...\n");
+                glob_log.log(3, "Oh Noes! We got a message we don't know what to do with...\n");
 
             default:
                 break;
@@ -470,7 +474,7 @@ void broadcast_channel::handle_chunk(int client_sock, struct message *in_msg) {
     msg_list = (struct message *)realloc(msg_list, sizeof(struct message));
     memcpy(&msg_list[0], in_msg, sizeof(struct message));
 
-    fprintf(stdout, "received %s message\n", msg_t_to_str(in_msg->type));
+    glob_log.log(3, "received %s message\n", msg_t_to_str(in_msg->type));
 
     // Get a decoder for this message
     dec_id = (((unsigned long)in_msg->cli_id) << 32) | (unsigned long)in_msg->msg_id;
@@ -483,7 +487,7 @@ void broadcast_channel::handle_chunk(int client_sock, struct message *in_msg) {
 
     // Add the chunk we just got
     msg_dec->add_chunk(in_msg->data, in_msg->data_len, in_msg->chunk_id);
-    dump_buf(in_msg->data, in_msg->data_len);
+    dump_buf(3, in_msg->data, in_msg->data_len);
 
     // Keep reading chunks and adding them until the bcast is done
     while (in_msg->data_len != 0) {
@@ -495,8 +499,7 @@ void broadcast_channel::handle_chunk(int client_sock, struct message *in_msg) {
         memcpy(&msg_list[num_msg-1], in_msg, sizeof(struct message));
 
         msg_dec->add_chunk(in_msg->data, in_msg->data_len, in_msg->chunk_id);
-        fprintf(stdout, "dumping buf\n");
-        dump_buf(in_msg->data, in_msg->data_len);
+        dump_buf(3, in_msg->data, in_msg->data_len);
     }
 
     // Forward the message on to the other peers
@@ -566,14 +569,14 @@ void broadcast_channel::quit() {
     int sock;
     struct client_info *peer;
     struct message out_msg;
-    fprintf(stdout, "Putting in 2 weeks' notice\n");
+    glob_log.log(3, "Putting in 2 weeks' notice\n");
 
     // Notify peers that we're quitting
     // Note: this will include our listener thread - this is good, because
     // it provides an easy way to tell it to shut down.
     for (int i = 0; i < (int)group_set.size(); i++) {
         peer =  group_set[i];
-        fprintf(stdout, "Notifying peer %s.\n", cli_to_str(peer));
+        glob_log.log(3, "Notifying peer %s.\n", cli_to_str(peer));
 
         // Setup the socket
         sock = make_socket();
@@ -640,7 +643,7 @@ void broadcast_channel::broadcast(msg_t algo, unsigned char *buf, size_t buf_len
 
         while((chunk_size = msg_enc->generate_chunk(&chunk, &chunk_id)) > 0 &&
                 chunk != NULL){
-            printf("Sending chunk %u of msg %lu to peer %u\n",
+            glob_log.log(2, "Sending chunk %u of msg %lu to peer %u\n",
                     chunk_id, msg_counter, peer->id);
             // Build the message around the chunk
             out_msg.type = algo;
@@ -708,11 +711,11 @@ void broadcast_channel::forward(struct message *msg_list, size_t num_msg) {
         // Send all messages
         for (out_msg = msg_list; out_msg < msg_list + num_msg; out_msg++) {
             if (out_msg->data_len != 0) {
-                printf("Forwarding chunk %u of msg %u from peer %u to peer %u\n",
+                glob_log.log(2, "Forwarding chunk %u of msg %u from peer %u to peer %u\n",
                         out_msg->chunk_id, out_msg->msg_id,
                         out_msg->cli_id, peer->id);
             } else {
-                printf("Forwarding terminal chunk of msg %u "
+                glob_log.log(2, "Forwarding terminal chunk of msg %u "
                         "from peer %u to peer %u\n",
                         out_msg->msg_id,
                         out_msg->cli_id, peer->id);

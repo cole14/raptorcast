@@ -5,6 +5,8 @@
 #include "cooperative_decoder.h"
 #include "cooperative_encoder.h"
 
+#include "logger.h"
+
 cooperative_decoder::cooperative_decoder() :
     msg_desc(NULL),
     decoded_data(NULL),
@@ -29,23 +31,23 @@ void cooperative_decoder::add_chunk (unsigned char * d, size_t len, unsigned int
         }
 
         // Read the message descriptor
-        printf("Read message descriptor (chunk 0)!\n");
+        glob_log.log(3, "Read message descriptor (chunk 0)!\n");
         msg_desc = (struct coop_descriptor *)malloc(sizeof(struct coop_descriptor));
         memcpy(msg_desc, d, sizeof(coop_descriptor));
         chunk_map[id] = NULL;
     } else {
-        printf("Read chunk %u\n", id);
+        glob_log.log(3, "Read chunk %u\n", id);
         unsigned char *data = (unsigned char *) malloc(len);
         memcpy(data, d, len);
         chunk_map[id] = data;
         data_len += len;
     }
-    printf("Current chunks: ");
+    glob_log.log(3, "Current chunks: ");
     std::map<unsigned int, unsigned char *>::iterator it = chunk_map.begin();
     for (; it != chunk_map.end(); ++it) {
-        printf("%u, ", it->first);
+        glob_log.log(3, "%u, ", it->first);
     }
-    printf("\n");
+    glob_log.log(3, "\n");
 }
 
 bool cooperative_decoder::is_ready (){
