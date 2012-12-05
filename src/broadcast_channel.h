@@ -2,6 +2,7 @@
 #define __BROADCAST_CHANNEL_H
 
 #include <netinet/ip.h>
+#include <time.h>
 
 #include <stddef.h>
 #include <string>
@@ -60,6 +61,9 @@ class broadcast_channel {
         unsigned long msg_counter;
         // Flag to specify whether to artifically crash at specified points
         bool debug_mode;
+        // Timers for message broadcast completion timing.
+        std::map< unsigned int, std::pair< int, struct timespec > > start_times;
+        clockid_t clk;
 
         // Contact a known host and get a list of all peers
         bool get_peer_list(std::string hostname, int port);

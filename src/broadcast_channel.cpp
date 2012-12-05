@@ -36,6 +36,8 @@ const char * msg_t_to_str(msg_t type) {
             return "READY";
         case QUIT:
             return "QUIT";
+        case CONFIRM:
+            return "CONFIRM";
         case CLIENT_SERVER:
             return "CLIENT_SERVER";
         case TRAD:
@@ -74,6 +76,10 @@ broadcast_channel::broadcast_channel(std::string name, std::string port, channel
     listener = lstnr;
     msg_counter = 0;
     debug_mode = false;
+
+    // Get the clock id for this process
+    if (0 != clock_getcpuclockid(0, &clk))
+        error(-1, errno, "Unable to get the system clock for timing");
 
     //Allocate the client_info struct
     my_info = (struct client_info *)calloc(1, sizeof(struct client_info));
@@ -351,6 +357,10 @@ void broadcast_channel::accept_connections() {
     struct sockaddr_in client_addr;
     socklen_t client_len;
     struct client_info *peer_info;
+    //time vars
+    unsigned int confirm_msgid;
+    struct timespec cur_time;
+    std::pair< int, struct timespec > time_info;
 
 
     //Start listening on the chunk receiver socket
@@ -407,6 +417,21 @@ void broadcast_channel::accept_connections() {
                     fprintf(stderr, "received quit notice from an unknown peer: %s",
                             cli_to_str(peer_info));
                 }
+                break;
+
+            case CONFIRM:
+                memcpy(&confirm_msgid, in_msg.data, sizeof(confirm_msgid));
+
+                if (-1 == clock_gettime(clk, &cur_time))
+                    error(-1, errno, "Unable to get current time");
+                time_info = start_times[confirm_msgid];
+                time_info.first -= 1;
+                if(time_info.first == 0){
+                    fprintf(stdout, "Received final confirmation message for msg %u\n", confirm_msgid);
+                    fprintf(stdout, "Took %lu microseconds!\n", 
+                        (unsigned long)(cur_time.tv_nsec - time_info.second.tv_nsec) / 1000);
+                }
+                start_times[confirm_msgid] = time_info;
                 break;
 
             case CLIENT_SERVER:
@@ -481,8 +506,34 @@ void broadcast_channel::handle_chunk(int client_sock, struct message *in_msg) {
 
     // Print the message and clean up
     if(msg_dec->is_ready()){
-        if(deliver_msg)
+        if(deliver_msg){
+            // Deliver the message to the application
             listener->receive(msg_dec->get_message(), msg_dec->get_len());
+
+            // Construct the confirm message
+            struct message finish_msg;
+            memset(&finish_msg, 0, sizeof(finish_msg));
+            unsigned int finish_msg_data = in_msg->msg_id;
+            construct_message(CONFIRM, &finish_msg, &finish_msg_data, sizeof(finish_msg_data));
+            // Get the original sender's ip info
+            int index;
+            for (index = 0; index < (int) group_set.size(); index++) {
+                if (group_set[index]->id == in_msg->cli_id)
+                    break;
+            }
+            if (index == (int) group_set.size())
+                error(-1, 0, "Could not find original broadcaster info struct\n");
+            struct client_info *peer = group_set[index];
+            // Open a socket to the original broadcaster
+            int confirm_sock = make_socket();
+            if (connect(confirm_sock, (struct sockaddr *) &peer->ip, sizeof(peer->ip)) < 0)
+                error(-1, errno, "Could not connect to peer %s", cli_to_str(peer));
+            // Send the confirm message
+            if (send(confirm_sock, &finish_msg, sizeof(finish_msg), 0) != sizeof(finish_msg))
+                error(-1, errno, "Could not send ready CONFIRM message");
+            // Close the socket
+            close(confirm_sock);
+        }
         if(msg_dec->is_finished())
             decoders.erase(dec_id);
     }
@@ -561,6 +612,12 @@ void broadcast_channel::broadcast(msg_t algo, unsigned char *buf, size_t buf_len
 
     // Increment the message id counter
     msg_counter++;
+
+    // Get the starting time of this broadcast
+    struct timespec start_time;
+    if(-1 == clock_gettime(clk, &start_time))
+        error(-1, errno, "Unable to get current time");
+    start_times[msg_counter] = std::make_pair< int, struct timespec >((int)group_set.size()-1, start_time);
 
     // Continually generate chunks until the decoder is out of chunks
     size_t chunk_size = 0;

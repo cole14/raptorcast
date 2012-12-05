@@ -1,6 +1,8 @@
 #ifndef __MESSAGE_TYPES_H
 #define __MESSAGE_TYPES_H
 
+#include <stddef.h>
+
 #define PACKET_LEN 256
 #define MAX_NAME_LEN 128  // Has to fit w/in PACKET_LEN
 
@@ -10,6 +12,7 @@ enum msg_t {
     PEER,   // Tell about a peer (this or another)
     READY,
     QUIT,
+    CONFIRM,
     // Broadcast algorithms
     CLIENT_SERVER,
     TRAD,
