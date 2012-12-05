@@ -21,7 +21,9 @@ lt_encoder::lt_encoder() :
     descriptor_sent(false),
     chunk_id(0),
     degree(0),
-    seed(42)
+    seed(42),
+    block_count_dist(NULL),
+    block_selection_dist(NULL)
 { }
 
 void lt_encoder::init(unsigned char *d, size_t dl, size_t cl, size_t np){
@@ -43,15 +45,18 @@ void lt_encoder::init(unsigned char *d, size_t dl, size_t cl, size_t np){
     total_chunks += 1;  // Account for the descriptor
     chunks_per_peer = (size_t) ceil(1.0 * total_chunks / num_peers);
 
-    // Seed the RNG
-    srand(seed);
 
     // Split up the data into blocks
     split_blocks(d, dl);
 
     // Set the degree (max blocks per chunk).
     degree = blocks.size() / 2;
-    degree += 1;
+    degree += 2;
+
+    // Set up the RNG
+    generator.seed(seed);
+    block_count_dist = new std::uniform_int_distribution<int>(1, degree);
+    block_selection_dist = new std::uniform_int_distribution<int>(0, blocks.size());
 }
 
 int lt_encoder::generate_chunk(unsigned char **dest, unsigned int *out_chunk_id){
@@ -76,13 +81,13 @@ int lt_encoder::generate_chunk(unsigned char **dest, unsigned int *out_chunk_id)
     int num_blocks;
     int *selected_blocks;
 
-    num_blocks = rand() % degree + 1; // Don't want 0!
-    selected_blocks = (int *) malloc(sizeof(int) * num_blocks);
+    num_blocks = (*block_count_dist)(generator);
+    selected_blocks = new int[num_blocks];
     for (int i = 0; i < num_blocks; i++) {
         int block_id;
         bool valid;
         do {
-            block_id = rand() % blocks.size();
+            block_id = (*block_selection_dist)(generator);
             valid = true;
             for (int j = 0; j < i; j++) {
                 if (selected_blocks[j] == block_id) {
@@ -114,6 +119,8 @@ int lt_encoder::generate_chunk(unsigned char **dest, unsigned int *out_chunk_id)
         // Easy peasy
         memcpy(chunk, blocks[selected_blocks[0]], chunk_len);
     }
+
+    delete[] selected_blocks;
 
     current_peer_chunks++;
     *dest = chunk;

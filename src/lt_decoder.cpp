@@ -1,6 +1,8 @@
 #include <error.h>
 #include <errno.h>
 #include <queue>
+#include <stdlib.h>
+#include <string.h>
 
 #include "lt_decoder.h"
 #include "logger.h"
@@ -13,14 +15,20 @@ lt_decoder::~lt_decoder()
 { }
 
 void lt_decoder::add_chunk (unsigned char * data, size_t len, unsigned int chunk_id) {
-    if (len == 0) {
-        // End of transmission, ignore
+    if (len == 0) // End of transmission, ignore
         return;
-    }
 
     if (chunk_id == 0) {
-        glob_log.log(3, "Read message descriptor (chunk 0)!\n");
-        // TODO: handle the message descriptor
+        if (msg_desc != NULL) // Repeat or terminater, ignore it.
+            return;
+
+        // Read the message descriptor
+        msg_desc = new lt_descriptor();
+        memcpy(msg_desc, data, sizeof(lt_descriptor));
+        glob_log.log(3, "Read lt message descriptor (chunk 0)!\n");
+        glob_log.log(3, "total_chunks %u, num_peers %u, chunk_len %u, seed %d\n",
+                msg_desc->total_chunks, msg_desc->num_peers,
+                msg_desc->chunk_len, msg_desc->seed);
         return;
     }
 

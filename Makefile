@@ -6,7 +6,7 @@ SRCDIR=./src
 
 #Compilation Vars
 CC=g++
-CFLAGS=-g -Wall -Werror
+CFLAGS=-g -Wall -Werror -std=c++0x
 LDFLAGS=-lpthread -pthread -lrt
 
 #List of source files 

@@ -34,7 +34,7 @@ void cooperative_decoder::add_chunk (unsigned char * d, size_t len, unsigned int
         glob_log.log(3, "Read message descriptor (chunk 0)!\n");
         msg_desc = (struct coop_descriptor *)malloc(sizeof(struct coop_descriptor));
         memcpy(msg_desc, d, sizeof(coop_descriptor));
-        chunk_map[id] = NULL;
+        chunk_map[0] = NULL;
     } else {
         glob_log.log(3, "Read chunk %u\n", id);
         unsigned char *data = (unsigned char *) malloc(len);
