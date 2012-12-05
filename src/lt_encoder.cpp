@@ -20,7 +20,7 @@ lt_encoder::lt_encoder() :
     current_peer_chunks(0),
     descriptor_sent(false),
     chunk_id(0),
-    degree(0),
+    max_degree(0),
     seed(42),
     block_count_dist(NULL),
     block_selection_dist(NULL)
@@ -49,13 +49,13 @@ void lt_encoder::init(unsigned char *d, size_t dl, size_t cl, size_t np){
     // Split up the data into blocks
     split_blocks(d, dl);
 
-    // Set the degree (max blocks per chunk).
-    degree = blocks.size() / 2;
-    degree += 2;
+    // Set the max degree (max blocks per chunk).
+    max_degree = blocks.size() / 2;
+    max_degree += 2;
 
     // Set up the RNG
     generator.seed(seed);
-    block_count_dist = new std::uniform_int_distribution<int>(1, degree);
+    block_count_dist = new std::uniform_int_distribution<int>(1, max_degree);
     block_selection_dist = new std::uniform_int_distribution<int>(0, blocks.size());
 }
 
@@ -96,6 +96,7 @@ int lt_encoder::generate_chunk(unsigned char **dest, unsigned int *out_chunk_id)
                 }
             }
         } while (!valid);
+        selected_blocks[i] = block_id;
     }
 
     // Now, turn those blocks into a chunk

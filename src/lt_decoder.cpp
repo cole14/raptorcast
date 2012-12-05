@@ -1,5 +1,6 @@
 #include <error.h>
 #include <errno.h>
+#include <functional>
 #include <queue>
 #include <stdlib.h>
 #include <string.h>
@@ -59,10 +60,57 @@ void lt_decoder::add_chunk (unsigned char * data, size_t len, unsigned int chunk
     }
 }
 
+/*
+ * Iterate the random number generator up to where we figure
+ * out what blocks go into the chunk corresponding to this
+ * chunk's id
+ *
+ * XXX This is terrible, we regen the same data over and over again.
+ *   It would make much more sense to save generated block lists, seeing
+ *   as we'll need many of them eventually.
+ */
 void lt_decoder::build_block_list(Chunk *chunk) {
-    // TODO: Imitate the random number generator up to where we figure
-    // out what blocks go into the chunk corresponding to this
-    // chunk's id
+    std::default_random_engine generator;
+    std::uniform_int_distribution<int> block_count_dist(1, msg_desc->max_degree);
+    std::uniform_int_distribution<int> block_select_dist(0, msg_desc->total_blocks);
+
+    generator.seed(msg_desc->seed);
+    auto count_rng = std::bind(block_count_dist, generator);
+    auto select_rng = std::bind(block_select_dist, generator);
+
+    int num_blocks;
+    int *selected_blocks = NULL;
+    for (unsigned int cid = 1; cid <= chunk->id; cid++) {
+        if (selected_blocks)
+            delete[] selected_blocks;
+        num_blocks = count_rng();
+        selected_blocks = new int[num_blocks];
+        for (int i = 0; i < num_blocks; i++) {
+            int block_id;
+            bool valid;
+            do {
+                block_id = select_rng();
+                valid = true;
+                for (int j = 0; j < i; j++) {
+                    if (selected_blocks[j] == block_id) {
+                        valid = false;
+                        break;
+                    }
+                }
+            } while (!valid);
+            selected_blocks[i] = block_id;
+        }
+    }
+
+    glob_log.log(3, "Generated block list for chunk %u: ", chunk->id);
+    for (int i = 0; i < num_blocks; i++) {
+        chunk->block_list.push_back((unsigned) selected_blocks[i]);
+        glob_log.log(3, "%d ", selected_blocks[i]);
+    }
+    chunk->degree = chunk->block_list.size();
+    glob_log.log(3, "\n");
+
+    delete[] selected_blocks;
 }
 
 /*

@@ -32,7 +32,7 @@ class lt_decoder : public decoder {
             unsigned char *data;
         };
 
-        struct Block *chunk_to_block(Chunk *chunk);
+        Block *chunk_to_block(Chunk *chunk);
 
         void build_block_list(Chunk *chunk);
         void reduce (Chunk *chunk, Block *block);

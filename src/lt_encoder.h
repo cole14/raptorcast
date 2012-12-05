@@ -7,7 +7,8 @@
 #include "encoder.h"
 
 struct lt_descriptor {
-    size_t num_blocks;
+    size_t total_blocks;
+    size_t max_degree;
     size_t num_peers;
     size_t total_chunks;
     size_t chunk_len;
@@ -34,7 +35,7 @@ class lt_encoder : public encoder {
         unsigned int chunk_id;
 
         std::vector<unsigned char *> blocks;    // Data split into blocks
-        size_t degree;      // Max number of blocks to choose
+        size_t max_degree;      // Max number of blocks to choose
         unsigned int seed;  // Seed for the random number generator
         std::default_random_engine generator;
         std::uniform_int_distribution<int> *block_count_dist;
