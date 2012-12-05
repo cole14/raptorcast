@@ -13,6 +13,8 @@
 
 #include "client.h"
 
+#include "logger.h"
+
 #include <iostream>
 
 /*
@@ -46,11 +48,11 @@ client::~client(){
 void client::receive(unsigned char *buf, size_t buf_len){
     if(buf == NULL) return;
 
-    fprintf(stdout, "Received message:\n");
+    glob_log.log(1, "Received message:\n");
     for(size_t i = 0; i < buf_len; i++){
-        fprintf(stdout, "%c", buf[i]);
+        glob_log.log(1, "%c", buf[i]);
     }
-    fprintf(stdout, "\n");
+    glob_log.log(1, "\n");
 }
 
 char *client::read_stripped_line(){
@@ -123,7 +125,7 @@ void client::connect(){
 msg_t client::get_alg () {
     while (0xFULL) {
         printf("Which algorithm?\n");
-        printf("client-[s]erver, [t]raditional, [c]ooperatvie, [r]aptor, [b]ack\n");
+        printf("client-[s]erver, [t]raditional, [c]ooperative, [r]aptor, [b]ack\n");
 
         //Print the prompt
         do {
@@ -181,7 +183,7 @@ void client::run_cli() {
             break;
 
         } else if (strcmp(line_buf, "help") == 0 || strcmp(line_buf, "h") == 0) {
-            printf("Commands: send [t]ext, send [f]ile, [p]eers, [d]ebug-toggle, [q]uit, [h]elp\n");
+            printf("Commands: send [t]ext, send [f]ile, [p]eers, [d]ebug-toggle, [l]log-level, [q]uit, [h]elp\n");
 
         } else if (strcmp(line_buf, "send text") == 0 || strcmp(line_buf, "t") == 0) {
             algorithm = get_alg();
@@ -227,6 +229,14 @@ void client::run_cli() {
 
         } else if (strcmp(line_buf, "debug-toggle") == 0 || strcmp(line_buf, "d") == 0) {
             printf("Debug mode is now %s\n", (chan->toggle_debug_mode()) ? "on" : "off");
+        } else if (strcmp(line_buf, "log-level") == 0 || strcmp(line_buf, "l") == 0) {
+            printf("Input new log level [1=quiet, 2=chatty, 3=verbose]: ");
+            read_stripped_line();
+            int new_level = strtol(line_buf, NULL, 10);
+            if(new_level < 1 || new_level > 3)
+                printf("ERR: log level must be between 1 and 3\n");
+            else
+                glob_log.set_level(new_level);
         } else {
             printf("Invalid command: %s\n", line_buf);
         }

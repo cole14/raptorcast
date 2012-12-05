@@ -7,7 +7,7 @@ SRCDIR=./src
 #Compilation Vars
 CC=g++
 CFLAGS=-g -Wall -Werror
-LDFLAGS=-lpthread -pthread
+LDFLAGS=-lpthread -pthread -lrt
 
 #List of source files 
 SRC_FILES=	client.cpp
@@ -17,6 +17,7 @@ SRC_FILES+=	client_server_encoder.cpp client_server_decoder.cpp
 SRC_FILES+=	cooperative_encoder.cpp cooperative_decoder.cpp
 SRC_FILES+=	traditional_encoder.cpp traditional_decoder.cpp
 SRC_FILES+=	encoder.cpp decoder.cpp
+SRC_FILES+=	logger.cpp
 
 #List of generated object files
 OBJS = $(patsubst %.cpp, $(BINDIR)/%.o, $(SRC_FILES))
