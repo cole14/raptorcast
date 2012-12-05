@@ -13,14 +13,13 @@
 #include "lt_encoder.h"
 
 lt_encoder::lt_encoder() :
-    data(NULL),
     data_len(0),
     chunk_len(0),
     num_peers(0),
     chunks_per_peer(0),
     current_peer_chunks(0),
     descriptor_sent(false),
-    chunk_id(0)
+    chunk_id(0),
     degree(0),
     seed(42)
 { }
@@ -99,7 +98,7 @@ int lt_encoder::generate_chunk(unsigned char **dest, unsigned int *out_chunk_id)
     // about reading somewhere bad
     unsigned char * chunk;
     chunk = (unsigned char *) malloc(chunk_len);
-    memset(chunk, 0 chunk_len);
+    memset(chunk, 0, chunk_len);
     if (num_blocks > 1) {
         // XOR all the blocks together
         // XXX optimize?

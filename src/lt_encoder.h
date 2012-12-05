@@ -1,6 +1,8 @@
 #ifndef __LT_ENCODER_H
 #define __LT_ENCODER_H
 
+#include <vector>
+
 #include "encoder.h"
 
 class lt_encoder : public encoder {
@@ -16,7 +18,7 @@ class lt_encoder : public encoder {
         size_t chunk_len;
         size_t num_peers;
         size_t total_chunks;
-        size_t chunks_peer_peer;
+        size_t chunks_per_peer;
         size_t current_peer_chunks;
 
         bool descriptor_sent;
@@ -27,10 +29,6 @@ class lt_encoder : public encoder {
         unsigned int seed;  // Seed for the random number generator
 
         void split_blocks(unsigned char *data, size_t data_len);
-}
-
-
-
-
+};
 
 #endif // __LT_ENCODER_H
