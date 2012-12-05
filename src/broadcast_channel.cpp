@@ -363,8 +363,10 @@ void broadcast_channel::accept_connections() {
     struct client_info *peer_info;
     //time vars
     unsigned int confirm_msgid;
+    msg_t confirm_type;
     struct timespec cur_time;
     std::pair< int, struct timespec > time_info;
+    logger t_log = logger(1, "time_msg_size.txt");
 
 
     //Start listening on the chunk receiver socket
@@ -425,6 +427,8 @@ void broadcast_channel::accept_connections() {
 
             case CONFIRM:
                 memcpy(&confirm_msgid, in_msg.data, sizeof(confirm_msgid));
+                memcpy(&confirm_type, in_msg.data + sizeof(confirm_msgid), sizeof(confirm_type));
+                dump_buf(1, &in_msg, sizeof(in_msg));
 
                 if (-1 == clock_gettime(clk, &cur_time))
                     error(-1, errno, "Unable to get current time");
@@ -433,6 +437,9 @@ void broadcast_channel::accept_connections() {
                 if(time_info.first == 0){
                     glob_log.log(2, "Received final confirmation message for msg %u\n", confirm_msgid);
                     glob_log.log(2, "Took %lu microseconds!\n", 
+                        (unsigned long)(cur_time.tv_nsec - time_info.second.tv_nsec) / 1000);
+
+                    t_log.log(1, "%s %lu\n", msg_t_to_str(confirm_type),
                         (unsigned long)(cur_time.tv_nsec - time_info.second.tv_nsec) / 1000);
                 }
                 start_times[confirm_msgid] = time_info;
@@ -516,7 +523,10 @@ void broadcast_channel::handle_chunk(int client_sock, struct message *in_msg) {
             // Construct the confirm message
             struct message finish_msg;
             memset(&finish_msg, 0, sizeof(finish_msg));
-            unsigned int finish_msg_data = in_msg->msg_id;
+            // Set the message data (msgid, algo)
+            unsigned char finish_msg_data[sizeof(unsigned) + sizeof(msg_t)];
+            memcpy(finish_msg_data, &(in_msg->msg_id), sizeof(unsigned));
+            memcpy(finish_msg_data + sizeof(unsigned), &(in_msg->type), sizeof(msg_t));
             construct_message(CONFIRM, &finish_msg, &finish_msg_data, sizeof(finish_msg_data));
             // Get the original sender's ip info
             int index;
