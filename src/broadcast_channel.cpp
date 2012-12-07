@@ -366,7 +366,10 @@ void broadcast_channel::accept_connections() {
     msg_t confirm_type;
     struct timespec cur_time;
     std::pair< int, struct timespec > time_info;
-    logger t_log = logger(1, "time_msg_size.txt");
+    //broadcast completion time logger
+    std::string t_log_f_name("_time_msg_size.txt");
+    t_log_f_name = my_info->name + t_log_f_name;
+    logger t_log = logger(1, t_log_f_name.c_str());
 
 
     //Start listening on the chunk receiver socket
@@ -428,7 +431,6 @@ void broadcast_channel::accept_connections() {
             case CONFIRM:
                 memcpy(&confirm_msgid, in_msg.data, sizeof(confirm_msgid));
                 memcpy(&confirm_type, in_msg.data + sizeof(confirm_msgid), sizeof(confirm_type));
-                dump_buf(1, &in_msg, sizeof(in_msg));
 
                 if (-1 == clock_gettime(clk, &cur_time))
                     error(-1, errno, "Unable to get current time");
@@ -439,8 +441,8 @@ void broadcast_channel::accept_connections() {
                     glob_log.log(2, "Took %lu microseconds!\n", 
                         (unsigned long)(cur_time.tv_nsec - time_info.second.tv_nsec) / 1000);
 
-                    t_log.log(1, "%s %lu\n", msg_t_to_str(confirm_type),
-                        (unsigned long)(cur_time.tv_nsec - time_info.second.tv_nsec) / 1000);
+                    t_log.log(1, "%s %lu %zu\n", msg_t_to_str(confirm_type),
+                        (unsigned long)(cur_time.tv_nsec - time_info.second.tv_nsec) / 1000, group_set.size());
                 }
                 start_times[confirm_msgid] = time_info;
                 break;
