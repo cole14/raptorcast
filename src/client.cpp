@@ -48,11 +48,12 @@ client::~client(){
 void client::receive(unsigned char *buf, size_t buf_len){
     if(buf == NULL) return;
 
-    glob_log.log(1, "Received message:\n");
+    glob_log.log(1, "Received message of len %zu:\n",buf_len);
     for(size_t i = 0; i < buf_len; i++){
         glob_log.log(1, "%c", buf[i]);
     }
     glob_log.log(1, "\n");
+    free(buf);
 }
 
 char *client::read_stripped_line(){
