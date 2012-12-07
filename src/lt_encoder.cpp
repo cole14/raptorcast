@@ -59,25 +59,8 @@ void lt_encoder::init(unsigned char *d, size_t dl, size_t cl, size_t np){
     block_selection_dist = new std::uniform_int_distribution<int>(0, blocks.size());
 }
 
-int lt_encoder::generate_chunk(unsigned char **dest, unsigned int *out_chunk_id){
-    // If this is the first chunk for this peer, send the header!
-    if (!descriptor_sent) {
-        descriptor_sent = true;
-
-        // TODO: send the descriptor!
-
-        *dest = NULL;
-        *out_chunk_id = 0;
-        return 0;
-    }
-
-    if (current_peer_chunks >= chunks_per_peer) {
-        *dest = NULL;
-        *out_chunk_id = 0;
-        return 0;
-    }
-
-    // First, choose which blocks we'll use for this chunk
+/* Choose a set of blocks to turn into a chunk */
+int lt_encoder::select_blocks(int **out_blocks) {
     int num_blocks;
     int *selected_blocks;
 
@@ -98,6 +81,39 @@ int lt_encoder::generate_chunk(unsigned char **dest, unsigned int *out_chunk_id)
         } while (!valid);
         selected_blocks[i] = block_id;
     }
+
+    *out_blocks = selected_blocks;
+    return num_blocks;
+}
+
+int lt_encoder::generate_chunk(unsigned char **dest, unsigned int *out_chunk_id){
+    // If this is the first chunk for this peer, send the header!
+    if (!descriptor_sent) {
+        descriptor_sent = true;
+
+        lt_descriptor *msg_desc = new lt_descriptor();
+        msg_desc->total_blocks = blocks.size();
+        msg_desc->max_degree = max_degree;
+        msg_desc->num_peers = num_peers;
+        msg_desc->total_chunks = total_chunks;
+        msg_desc->chunk_len = chunk_len;
+        msg_desc->seed = seed;
+
+        *dest = &msg_desc;
+        *out_chunk_id = 0;
+        return sizeof(lt_descriptor);
+    }
+
+    if (current_peer_chunks >= chunks_per_peer) {
+        *dest = NULL;
+        *out_chunk_id = 0;
+        return 0;
+    }
+
+    // First, choose which blocks we'll use for this chunk
+    int num_blocks;
+    int *selected_blocks;
+    num_blocks = select_blocks(&selected_blocks);
 
     // Now, turn those blocks into a chunk
     // Note that the data is padded, so we don't have to worry

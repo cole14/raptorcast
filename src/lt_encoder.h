@@ -12,7 +12,7 @@ struct lt_descriptor {
     size_t num_peers;
     size_t total_chunks;
     size_t chunk_len;
-    int seed;
+    unsigned int seed;
 };
 
 class lt_encoder : public encoder {
@@ -36,12 +36,14 @@ class lt_encoder : public encoder {
 
         std::vector<unsigned char *> blocks;    // Data split into blocks
         size_t max_degree;      // Max number of blocks to choose
+
         unsigned int seed;  // Seed for the random number generator
         std::default_random_engine generator;
         std::uniform_int_distribution<int> *block_count_dist;
         std::uniform_int_distribution<int> *block_selection_dist;
 
         void split_blocks(unsigned char *data, size_t data_len);
+        int select_blocks(int *out_sb);
 };
 
 #endif // __LT_ENCODER_H
