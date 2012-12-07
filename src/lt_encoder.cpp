@@ -65,25 +65,25 @@ struct lt_descriptor *lt_encoder::get_desc() {
 int lt_encoder::generate_chunk(unsigned char **dest, unsigned int *out_chunk_id){
     // If this is the first chunk for this peer, send the header!
     if (!descriptor_sent) {
-        glob_log.log(3, "LT encoder generating descriptor chunk\n");
+        glob_log.log(7, "LT encoder generating descriptor chunk\n");
         descriptor_sent = true;
 
         lt_descriptor *msg_desc = get_desc();
 
-        *dest = (unsigned char *)&msg_desc;
+        *dest = (unsigned char *)msg_desc;
         *out_chunk_id = 0;
         return sizeof(lt_descriptor);
     }
 
     if (current_peer_chunks >= chunks_per_peer) {
-        glob_log.log(3, "LT encoder generating terminator chunk\n");
+        glob_log.log(7, "LT encoder generating terminator chunk\n");
         *dest = NULL;
         *out_chunk_id = 0;
         return 0;
     }
 
     // OK, we're good to send out a content chunk.
-    glob_log.log(3, "LT encoder generating content chunk %u\n", chunk_id);
+    glob_log.log(7, "LT encoder generating content chunk %u\n", chunk_id);
 
     // First, choose which blocks we'll use for this chunk
     int num_blocks;

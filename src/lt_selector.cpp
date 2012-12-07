@@ -6,12 +6,12 @@
 lt_selector::lt_selector(int s, int nb) {
     seed = s;
     num_blocks = nb;
-    max_degree = num_blocks / 2 + 2;
+    max_degree = num_blocks / 2 + 1;
 
     // Build the random engines
     generator.seed(seed);
     block_count_dist = new std::uniform_int_distribution<int>(1, max_degree);
-    block_select_dist = new std::uniform_int_distribution<int>(0, num_blocks);
+    block_select_dist = new std::uniform_int_distribution<int>(0, num_blocks-1);
 
     glob_log.log(3, "Creating new lt_selector with seed %d, max degree %d, number of blocks %d\n",
             seed, max_degree, num_blocks);

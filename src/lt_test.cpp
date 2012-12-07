@@ -9,7 +9,7 @@
 
 int main () {
     glob_log.set_level(5);
-    FILE *f = fopen("test/med", "rb");
+    FILE *f = fopen("test/long", "rb");
     fseek(f, 0, SEEK_END);
     long pos = ftell(f);
     fseek(f, 0, SEEK_SET);
@@ -23,7 +23,9 @@ int main () {
     int num_blocks;
     int *selected_blocks;
 
+    printf("\n================================\n");
     printf("Basic block select test\n\n");
+    printf("================================\n\n");
 
     lt_selector *ltsA = new lt_selector(seed, total_blocks);
     printf("Generating block lists in order, usng ltsA\n");
@@ -38,13 +40,6 @@ int main () {
     for (int i = 9; i > 0; i--) {
         num_blocks = ltsB->select_blocks(i, &selected_blocks);
     }
-
-    /*
-        printf("Chunk %d: %d blocks: ", i, num_blocks);
-        for (int b = 0; b < num_blocks; b++) {
-            printf("%d ", selected_blocks[b]);
-        }
-        */
 
     printf("\n================================\n");
     printf("Generate/reverse test\n");
@@ -66,7 +61,7 @@ int main () {
         enc->generate_chunk(&dest, &chunk_id);
         if (dest == NULL) {
             enc->next_stream();
-            i--;
+            i-=2;
         }
     }
 
@@ -80,11 +75,37 @@ int main () {
     for (int i = 1; i < 11; i++) {
         chunk.id = i;
         dec->build_block_list(&chunk);
-
-        printf("Chunk %d: %lu blocks ", i, chunk.block_list.size());
-        for (unsigned int b = 0; b < chunk.block_list.size(); b++) {
-            printf("%d ", chunk.block_list[b]);
-        }
-        printf("\n");
     }
+
+    printf("\n================================\n");
+    printf("Encode/Decode test\n");
+    printf("================================\n\n");
+
+    enc = new lt_encoder();
+    enc->init(bytes, pos, 256, 1);
+
+    dec = new lt_decoder();
+
+    size_t len = 0;
+    int content_chunks = 0;
+    int network_chunks = 0;
+    while (!dec->is_ready()) {
+        network_chunks++;
+        len = enc->generate_chunk(&dest, &chunk_id);
+        if (dest == NULL) {
+            enc->next_stream();
+            continue;
+        }
+        dec->add_chunk(dest, len, chunk_id);
+        if (chunk_id > 0) content_chunks++;
+    }
+
+    num_blocks = enc->get_desc()->total_blocks;
+
+    printf("Finished decodng message:\n%s\n", dec->get_message());
+    printf("%d blocks, %d content chunks, %d network chunks (%.2f overhead)\n",
+            num_blocks,
+            content_chunks,
+            network_chunks,
+            (1.0 * (network_chunks - num_blocks) / num_blocks));
 }

@@ -52,7 +52,6 @@ void lt_decoder::add_chunk (unsigned char * data, size_t len, unsigned int chunk
     chunk->id = chunk_id;
     chunk->data = data;
     build_block_list(chunk);
-    chunk_list.push_back(chunk);
 
     for (unsigned int i = 0; i < msg_desc->total_chunks; i++) {
         if (decoded_blocks.find(i) != decoded_blocks.end())   // Fuck C++
@@ -61,6 +60,8 @@ void lt_decoder::add_chunk (unsigned char * data, size_t len, unsigned int chunk
 
     if (chunk->degree == 1) {
         add_block(chunk);
+    } else {
+        chunk_list.push_back(chunk);
     }
 }
 
@@ -86,6 +87,9 @@ void lt_decoder::build_block_list(Chunk *chunk) {
  * reduces the chunk by the block.
  */
 void lt_decoder::reduce (Chunk *chunk, Block *block) {
+    if (chunk->degree < 2)
+        return;
+
     int match = -1;
     for (unsigned int i = 0; i < chunk->block_list.size(); i++) {
         if (chunk->block_list[i] == block->id) {
@@ -94,11 +98,10 @@ void lt_decoder::reduce (Chunk *chunk, Block *block) {
         }
     }
 
-    if (match < 0) {
+    if (match < 0)
         return;
-    }
 
-    glob_log.log(3, "Found a match! Reducing chunk %d by block %d\n",
+    glob_log.log(3, "Reducing chunk %d by block %d\n",
             chunk->id, block->id);
 
     chunk->block_list.erase(chunk->block_list.begin()+match);
@@ -119,13 +122,15 @@ lt_decoder::Block *lt_decoder::chunk_to_block(Chunk *chunk) {
     Block *block = new Block();
     block->data = chunk->data;
     block->id = chunk->block_list[0];
+    glob_log.log(5, "Converting chunk %u into block %u.  Contents:\n%s\n",
+            chunk->id, block->id, block->data);
     return block;
 }
 
 /*
  * Iterate through the list of unfinished chunks, and see if the
- * incoming chunk (which will be converted into a block) matches
- * any.  Note that if it does, we will need to iterate them as well.
+ *   incoming chunk (which will be converted into a block) matches
+ *   any.  Note that if it does, we will need to iterate them as well.
  */
 void lt_decoder::add_block (Chunk *in_chunk){
     std::queue< Chunk * > work_queue;
@@ -143,17 +148,42 @@ void lt_decoder::add_block (Chunk *in_chunk){
 }
 
 void lt_decoder::clean_chunks () {
+    for (unsigned i = 0; i < chunk_list.size(); i++) {
+        if (chunk_list[i]->degree == 1) {
+            chunk_list.erase(chunk_list.begin()+i);
+        }
+    }
 }
 
 bool lt_decoder::is_ready () {
-    return false;
+    if (msg_desc == NULL)
+        return false;
+    else if (decoded_blocks.size() >= msg_desc->total_blocks)
+        return true;
+    else
+        return false;
 }
 bool lt_decoder::is_finished () {
     return false;
 }
 unsigned char * lt_decoder::get_message () {
-    return NULL;
+    if (!is_ready())
+        return NULL;
+
+    size_t data_len = get_len();
+    unsigned char *data, *dp;
+    data = (unsigned char *) malloc(data_len);
+    dp = data;
+
+    for (unsigned b = 0; b < decoded_blocks.size(); b++) {
+        memcpy(dp, decoded_blocks[b]->data, msg_desc->chunk_len);
+        dp += msg_desc->chunk_len;
+    }
+
+    return data;
 }
 size_t lt_decoder::get_len () {
-    return 4;
+    if (!is_ready())
+        return 0;
+    return msg_desc->total_blocks * msg_desc->chunk_len;
 }
