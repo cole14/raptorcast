@@ -29,6 +29,7 @@ void logger::log(int l, const char *str, ...){
         return;
 
     vfprintf(fp, str, list);
+    fflush(fp);
 
     va_end(list);
 }
