@@ -19,7 +19,6 @@ class cooperative_decoder : public decoder {
     private:
         std::map<unsigned int, unsigned char *> chunk_map;
         struct coop_descriptor *msg_desc;
-        unsigned char *decoded_data;
         size_t data_len;
 };
 

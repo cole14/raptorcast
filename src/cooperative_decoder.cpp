@@ -9,13 +9,11 @@
 
 cooperative_decoder::cooperative_decoder() :
     msg_desc(NULL),
-    decoded_data(NULL),
     data_len(0)
 { }
 
 cooperative_decoder::~cooperative_decoder() {
     if (msg_desc) free(msg_desc);
-    if (decoded_data) free(decoded_data);
 }
 
 void cooperative_decoder::add_chunk (unsigned char * d, size_t len, unsigned int id){
@@ -65,26 +63,23 @@ bool cooperative_decoder::is_finished (){
 unsigned char * cooperative_decoder::get_message (){
     if (!is_ready()) {
         return NULL;
-    } else if (decoded_data != NULL) {
-        return decoded_data;
-
-    } else {
-        // Decode the message
-        decoded_data = (unsigned char *) malloc(data_len);
-        unsigned char *pos = decoded_data;
-        size_t bytes_read = 0;
-        // Note that the 0th chunk is the message descriptor, and the last may
-        // not be full length
-        unsigned int i;
-        for (i = 1; i < msg_desc->total_chunks-1; i++) {
-            memcpy(pos, chunk_map[i], msg_desc->chunk_len);
-            pos += msg_desc->chunk_len;
-            bytes_read += msg_desc->chunk_len;
-        }
-        memcpy(pos, chunk_map[i], data_len-bytes_read);
-
-        return decoded_data;
     }
+
+    // Decode the message
+    unsigned char *decoded_data = (unsigned char *) malloc(data_len);
+    unsigned char *pos = decoded_data;
+    size_t bytes_read = 0;
+    // Note that the 0th chunk is the message descriptor, and the last may
+    // not be full length
+    unsigned int i;
+    for (i = 1; i < msg_desc->total_chunks-1; i++) {
+        memcpy(pos, chunk_map[i], msg_desc->chunk_len);
+        pos += msg_desc->chunk_len;
+        bytes_read += msg_desc->chunk_len;
+    }
+    memcpy(pos, chunk_map[i], data_len-bytes_read);
+
+    return decoded_data;
 }
 
 size_t cooperative_decoder::get_len (){
