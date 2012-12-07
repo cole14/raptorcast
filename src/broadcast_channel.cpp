@@ -10,6 +10,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <utility>
 
 #include "broadcast_channel.h"
 
@@ -438,7 +439,7 @@ void broadcast_channel::accept_connections() {
                 time_info.first -= 1;
                 if(time_info.first == 0){
                     glob_log.log(2, "Received final confirmation message for msg %u\n", confirm_msgid);
-                    glob_log.log(2, "Took %lu microseconds!\n", 
+                    glob_log.log(2, "Took %lu microseconds!\n",
                         (unsigned long)(cur_time.tv_nsec - time_info.second.tv_nsec) / 1000);
 
                     t_log.log(1, "%s %lu %zu\n", msg_t_to_str(confirm_type),
@@ -632,7 +633,7 @@ void broadcast_channel::broadcast(msg_t algo, unsigned char *buf, size_t buf_len
     struct timespec start_time;
     if(-1 == clock_gettime(clk, &start_time))
         error(-1, errno, "Unable to get current time");
-    start_times[msg_counter] = std::make_pair< int, struct timespec >((int)group_set.size()-1, start_time);
+    start_times[msg_counter] = std::make_pair((int)group_set.size()-1, start_time);
 
     // Continually generate chunks until the decoder is out of chunks
     size_t chunk_size = 0;

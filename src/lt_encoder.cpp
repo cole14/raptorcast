@@ -10,7 +10,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "lt_common.h"
 #include "lt_encoder.h"
+
+#define LT_SEED 42
 
 lt_encoder::lt_encoder() :
     data_len(0),
@@ -19,11 +22,7 @@ lt_encoder::lt_encoder() :
     chunks_per_peer(0),
     current_peer_chunks(0),
     descriptor_sent(false),
-    chunk_id(0),
-    max_degree(0),
-    seed(42),
-    block_count_dist(NULL),
-    block_selection_dist(NULL)
+    chunk_id(1)
 { }
 
 void lt_encoder::init(unsigned char *d, size_t dl, size_t cl, size_t np){
@@ -49,71 +48,47 @@ void lt_encoder::init(unsigned char *d, size_t dl, size_t cl, size_t np){
     // Split up the data into blocks
     split_blocks(d, dl);
 
-    // Set the max degree (max blocks per chunk).
-    max_degree = blocks.size() / 2;
-    max_degree += 2;
-
-    // Set up the RNG
-    generator.seed(seed);
-    block_count_dist = new std::uniform_int_distribution<int>(1, max_degree);
-    block_selection_dist = new std::uniform_int_distribution<int>(0, blocks.size());
+    // Prepare the RNG
+    lts = new lt_selector(LT_SEED, blocks.size());
 }
 
-/* Choose a set of blocks to turn into a chunk */
-int lt_encoder::select_blocks(int **out_blocks) {
-    int num_blocks;
-    int *selected_blocks;
-
-    num_blocks = (*block_count_dist)(generator);
-    selected_blocks = new int[num_blocks];
-    for (int i = 0; i < num_blocks; i++) {
-        int block_id;
-        bool valid;
-        do {
-            block_id = (*block_selection_dist)(generator);
-            valid = true;
-            for (int j = 0; j < i; j++) {
-                if (selected_blocks[j] == block_id) {
-                    valid = false;
-                    break;
-                }
-            }
-        } while (!valid);
-        selected_blocks[i] = block_id;
-    }
-
-    *out_blocks = selected_blocks;
-    return num_blocks;
+struct lt_descriptor *lt_encoder::get_desc() {
+    lt_descriptor *msg_desc = new lt_descriptor();
+    msg_desc->total_blocks = blocks.size();
+    msg_desc->num_peers = num_peers;
+    msg_desc->total_chunks = total_chunks;
+    msg_desc->chunk_len = chunk_len;
+    msg_desc->seed = LT_SEED;
+    return msg_desc;
 }
 
 int lt_encoder::generate_chunk(unsigned char **dest, unsigned int *out_chunk_id){
     // If this is the first chunk for this peer, send the header!
     if (!descriptor_sent) {
+        glob_log.log(3, "LT encoder generating descriptor chunk\n");
         descriptor_sent = true;
 
-        lt_descriptor *msg_desc = new lt_descriptor();
-        msg_desc->total_blocks = blocks.size();
-        msg_desc->max_degree = max_degree;
-        msg_desc->num_peers = num_peers;
-        msg_desc->total_chunks = total_chunks;
-        msg_desc->chunk_len = chunk_len;
-        msg_desc->seed = seed;
+        lt_descriptor *msg_desc = get_desc();
 
-        *dest = &msg_desc;
+        *dest = (unsigned char *)&msg_desc;
         *out_chunk_id = 0;
         return sizeof(lt_descriptor);
     }
 
     if (current_peer_chunks >= chunks_per_peer) {
+        glob_log.log(3, "LT encoder generating terminator chunk\n");
         *dest = NULL;
         *out_chunk_id = 0;
         return 0;
     }
 
+    // OK, we're good to send out a content chunk.
+    glob_log.log(3, "LT encoder generating content chunk %u\n", chunk_id);
+
     // First, choose which blocks we'll use for this chunk
     int num_blocks;
     int *selected_blocks;
-    num_blocks = select_blocks(&selected_blocks);
+    num_blocks = lts->select_blocks(chunk_id, &selected_blocks);
 
     // Now, turn those blocks into a chunk
     // Note that the data is padded, so we don't have to worry
@@ -164,3 +139,4 @@ void lt_encoder::split_blocks(unsigned char *data, size_t data_len) {
         blocks.push_back(b_pos);
     }
 }
+
