@@ -188,18 +188,20 @@ void broadcast_channel::print_peers(int indent) {
     }
 }
 
-bool broadcast_channel::read_message(int sock, struct message *msg) {
+ssize_t broadcast_channel::read_message(int sock, void *msg) {
     ssize_t cur_read = 0;
     size_t tot_read = 0;
 
+    unsigned char *in_msg = (unsigned char *)msg;
+
     while(tot_read < sizeof(struct message)){
-        cur_read = recv(sock, msg + tot_read, sizeof(struct message) - tot_read, 0);
+        cur_read = recv(sock, in_msg + tot_read, sizeof(struct message) - tot_read, 0);
         if(cur_read <= 0)
-            return false;
+            return cur_read;
         tot_read += (size_t)cur_read;
     }
 
-    return true;
+    return (ssize_t)tot_read;
 }
 
 /*
@@ -236,7 +238,7 @@ bool broadcast_channel::get_peer_list(std::string hostname, int port) {
 
     // Wait for response
     // First message will be info about us as seen by strap
-    if(!read_message(sock, &in_msg))
+    if(read_message(sock, &in_msg) < 0)
         error(-1, errno, "Could not receive bootstrap response");
     if (in_msg.type != PEER)
         error(-1, EIO, "received bad bootstrap response message type");
@@ -249,7 +251,7 @@ bool broadcast_channel::get_peer_list(std::string hostname, int port) {
     my_info->id = peer_info->id;
 
     // Following 0 or more messages will represent network peers
-    while (read_message(sock, &in_msg)) {
+    while (read_message(sock, &in_msg) > 0) {
         add_peer(&in_msg);
     }
 
@@ -298,7 +300,7 @@ bool broadcast_channel::notify_peers() {
             error(-1, errno, "Could not send peer notification");
 
         // Get reply
-        if (!read_message(sock, &in_msg))
+        if (read_message(sock, &in_msg) < 0)
             error(-1, errno, "Could not receive peer response");
         if (in_msg.type != READY)
             error(-1, errno, "received bad peer response message type");
@@ -397,7 +399,7 @@ void broadcast_channel::accept_connections() {
         glob_log.log(3, "accepted client!\n");
 
         // Handle the request
-        if (!read_message(client_sock, &in_msg))
+        if (read_message(client_sock, &in_msg) < 0)
             error(-1, errno, "Could not receive client message");
 
         switch (in_msg.type) {
@@ -510,7 +512,7 @@ void broadcast_channel::handle_chunk(int client_sock, struct message *in_msg) {
 
     // Keep reading chunks and adding them until the bcast is done
     while (in_msg->data_len != 0) {
-        if (!read_message(client_sock, in_msg))
+        if (read_message(client_sock, in_msg) < 0)
             error(-1, errno, "Could not receive client message");
 
         num_msg++;
