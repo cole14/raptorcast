@@ -189,6 +189,22 @@ void broadcast_channel::print_peers(int indent) {
     }
 }
 
+ssize_t broadcast_channel::read_message(int sock, void *msg) {
+    ssize_t cur_read = 0;
+    size_t tot_read = 0;
+
+    unsigned char *in_msg = (unsigned char *)msg;
+
+    while(tot_read < sizeof(struct message)){
+        cur_read = recv(sock, in_msg + tot_read, sizeof(struct message) - tot_read, 0);
+        if(cur_read <= 0)
+            return cur_read;
+        tot_read += (size_t)cur_read;
+    }
+
+    return (ssize_t)tot_read;
+}
+
 /*
  * Request the group set from a known host (the "strap")
  * Sends a JOIN message to hostname:port, containing information about this
@@ -198,7 +214,6 @@ void broadcast_channel::print_peers(int indent) {
  */
 bool broadcast_channel::get_peer_list(std::string hostname, int port) {
     int sock;
-    int bytes_received;
     struct addrinfo *strap_h;
     struct sockaddr_in *strap_addr;
     struct message in_msg, out_msg;
@@ -224,7 +239,7 @@ bool broadcast_channel::get_peer_list(std::string hostname, int port) {
 
     // Wait for response
     // First message will be info about us as seen by strap
-    if ((bytes_received = recv(sock, &in_msg, sizeof(in_msg), 0)) < 0)
+    if(read_message(sock, &in_msg) < 0)
         error(-1, errno, "Could not receive bootstrap response");
     if (in_msg.type != PEER)
         error(-1, EIO, "received bad bootstrap response message type");
@@ -237,7 +252,7 @@ bool broadcast_channel::get_peer_list(std::string hostname, int port) {
     my_info->id = peer_info->id;
 
     // Following 0 or more messages will represent network peers
-    while (recv(sock, &in_msg,sizeof(in_msg), 0) > 0) {
+    while (read_message(sock, &in_msg) > 0) {
         add_peer(&in_msg);
     }
 
@@ -257,7 +272,6 @@ bool broadcast_channel::get_peer_list(std::string hostname, int port) {
  */
 bool broadcast_channel::notify_peers() {
     int sock;
-    int bytes_received;
     struct message in_msg, out_msg;
     struct client_info *peer;
 
@@ -287,7 +301,7 @@ bool broadcast_channel::notify_peers() {
             error(-1, errno, "Could not send peer notification");
 
         // Get reply
-        if ((bytes_received = recv(sock, &in_msg, sizeof(in_msg), 0)) < 0)
+        if (read_message(sock, &in_msg) < 0)
             error(-1, errno, "Could not receive peer response");
         if (in_msg.type != READY)
             error(-1, errno, "received bad peer response message type");
@@ -357,7 +371,6 @@ void *broadcast_channel::start_server(void *args) {
 
 void broadcast_channel::accept_connections() {
     int client_sock;
-    int bytes_received;
     struct message in_msg, out_msg;
     struct sockaddr_in client_addr;
     socklen_t client_len;
@@ -387,7 +400,7 @@ void broadcast_channel::accept_connections() {
         glob_log.log(3, "accepted client!\n");
 
         // Handle the request
-        if ((bytes_received = recv(client_sock, &in_msg, sizeof(in_msg), 0)) < 0)
+        if (read_message(client_sock, &in_msg) < 0)
             error(-1, errno, "Could not receive client message");
 
         switch (in_msg.type) {
@@ -474,7 +487,6 @@ void broadcast_channel::handle_chunk(int client_sock, struct message *in_msg) {
     struct message *msg_list = NULL;
     size_t num_msg = 1;
     decoder *msg_dec = NULL;
-    size_t bytes_received = 0;
     bool deliver_msg = false;
     unsigned long dec_id = 0;
 
@@ -502,7 +514,7 @@ void broadcast_channel::handle_chunk(int client_sock, struct message *in_msg) {
 
     // Keep reading chunks and adding them until the bcast is done
     while (in_msg->data_len != 0) {
-        if ((bytes_received = recv(client_sock, in_msg, sizeof(struct message), 0)) < 0)
+        if (read_message(client_sock, in_msg) < 0)
             error(-1, errno, "Could not receive client message");
 
         num_msg++;

@@ -187,7 +187,7 @@ void client::run_cli() {
             break;
 
         } else if (strcmp(line_buf, "help") == 0 || strcmp(line_buf, "h") == 0) {
-            printf("Commands: send [t]ext, send [f]ile, [p]eers, [d]ebug-toggle, [l]log-level, [q]uit, [h]elp\n");
+            printf("Commands: send [t]ext, send [f]ile, [p]eers, [d]ebug-toggle, [l]log-level, [s]pin, [q]uit, [h]elp\n");
 
         } else if (strcmp(line_buf, "send text") == 0 || strcmp(line_buf, "t") == 0) {
             algorithm = get_alg();
@@ -241,6 +241,11 @@ void client::run_cli() {
                 printf("ERR: log level must be between 1 and 3\n");
             else
                 glob_log.set_level(new_level);
+        } else if (strcmp(line_buf, "spin") == 0 || strcmp(line_buf, "s") == 0) {
+            printf("Input spin time: ");
+            read_stripped_line();
+            unsigned seconds = (unsigned)strtol(line_buf, NULL, 10);
+            while(sleep(seconds)) ;
         } else {
             printf("Invalid command: %s\n", line_buf);
         }

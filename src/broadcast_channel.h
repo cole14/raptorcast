@@ -94,6 +94,8 @@ class broadcast_channel {
 
         // Create a tcp socket
         int make_socket();
+        // Read a message from a tcp socket into 'msg'
+        ssize_t read_message(int sock, void *msg);
 };
 
 #endif /* __BROADCAST_CHANNEL_H */
