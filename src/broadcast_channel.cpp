@@ -766,13 +766,10 @@ void broadcast_channel::forward(std::list< struct message * > msg_list) {
         fe->msg_list = msg_list;
         fe->peer_id = peer->id;
         fe->this_ptr = this;
+        if(i == (int)group_set.size() - 1) fe->should_delete = true;
+        else fe->should_delete = false;
 
         pthread_create( &forward_thread, NULL, do_forward, (void *)fe);
-    }
-
-    for (std::list< struct message * >::iterator it = msg_list.begin();
-            it != msg_list.end(); it++) {
-        free(*it);
     }
 }
 
@@ -804,6 +801,12 @@ void *broadcast_channel::do_forward(void *arg){
     if (close(fe->sock) != 0)
         error(-1, errno, "Error closing peer socket");
 
+    if(fe->should_delete){
+        for (std::list< struct message * >::iterator it = fe->msg_list.begin();
+                it != fe->msg_list.end(); it++) {
+            free(*it);
+        }
+    }
     free(fe);
 
     return NULL;
