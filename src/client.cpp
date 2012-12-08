@@ -184,7 +184,7 @@ void client::run_cli() {
             break;
 
         } else if (strcmp(line_buf, "help") == 0 || strcmp(line_buf, "h") == 0) {
-            printf("Commands: send [t]ext, send [f]ile, [p]eers, [d]ebug-toggle, [l]log-level, [s]pin, [q]uit, [h]elp\n");
+            printf("Commands: send [t]ext, send [f]ile, [p]eers, [d]ebug-toggle, [l]log-level, [s]pin, [z]ombify, [q]uit, [h]elp\n");
 
         } else if (strcmp(line_buf, "send text") == 0 || strcmp(line_buf, "t") == 0) {
             algorithm = get_alg();
@@ -243,6 +243,10 @@ void client::run_cli() {
             read_stripped_line();
             unsigned seconds = (unsigned)strtol(line_buf, NULL, 10);
             while(sleep(seconds)) ;
+        } else if (strcmp(line_buf, "zombify") == 0 || strcmp(line_buf, "z") == 0) {
+            printf("Turing into a zooOOoombie!\n");
+            while(true)
+                sleep(100);
         } else {
             printf("Invalid command: %s\n", line_buf);
         }
