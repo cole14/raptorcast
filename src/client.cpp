@@ -126,7 +126,7 @@ void client::connect(){
 msg_t client::get_alg () {
     while (0xFULL) {
         printf("Which algorithm?\n");
-        printf("client-[s]erver, [t]raditional, [c]ooperative, [r]aptor, [b]ack\n");
+        printf("client-[s]erver, [t]raditional, [c]ooperative, [l]t, [r]aptor, [b]ack\n");
 
         //Print the prompt
         do {
@@ -145,6 +145,9 @@ msg_t client::get_alg () {
 
         } else if (strcmp(line_buf, "cooperative") == 0 || strcmp(line_buf, "c") == 0) {
             return COOP;
+
+        } else if (strcmp(line_buf, "lt") == 0 || strcmp(line_buf, "l") == 0) {
+            return LT;
 
         } else if (strcmp(line_buf, "raptor") == 0 || strcmp(line_buf, "r") == 0) {
             return RAPTOR;

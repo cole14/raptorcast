@@ -451,6 +451,7 @@ void broadcast_channel::accept_connections() {
             case CLIENT_SERVER:
             case TRAD:
             case COOP:
+            case LT:
                 handle_chunk(client_sock, &in_msg);
 
                 break;
