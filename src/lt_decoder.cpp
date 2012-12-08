@@ -9,7 +9,9 @@
 #include "logger.h"
 
 lt_decoder::lt_decoder() :
-    msg_desc(NULL)
+    msg_desc(NULL),
+    chunks_seen(0),
+    ready(false)
 { }
 
 lt_decoder::~lt_decoder()
@@ -17,6 +19,9 @@ lt_decoder::~lt_decoder()
 
 void lt_decoder::add_chunk (unsigned char * data, size_t len, unsigned int chunk_id) {
     if (len == 0) // End of transmission, ignore
+        return;
+
+    if (is_ready())  // No need to keep processing chunks, the bc will auto-forawrd them
         return;
 
     if (chunk_id == 0) {
@@ -31,11 +36,12 @@ void lt_decoder::add_chunk (unsigned char * data, size_t len, unsigned int chunk
         lts = new lt_selector(msg_desc->seed, msg_desc->total_blocks);
 
         glob_log.log(3, "Read lt message descriptor (chunk 0)!\n");
-        glob_log.log(3, "total_chunks %u, num_peers %u, chunk_len %u, seed %d\n",
+        glob_log.log(3, "total_chunks %zu, num_peers %zu, chunk_len %zu, seed %d\n",
                 msg_desc->total_chunks, msg_desc->num_peers,
                 msg_desc->chunk_len, msg_desc->seed);
         return;
     }
+
 
     // At this point, it would make sense to check whether we've seen
     //   the message descriptor is always the first chunk in a transmission.
@@ -50,8 +56,10 @@ void lt_decoder::add_chunk (unsigned char * data, size_t len, unsigned int chunk
 
     Chunk *chunk = new Chunk();
     chunk->id = chunk_id;
-    chunk->data = data;
+    chunk->data = new unsigned char[msg_desc->chunk_len];
+    memcpy(chunk->data, data, msg_desc->chunk_len);
     build_block_list(chunk);
+    chunks_seen++;
 
     for (unsigned int i = 0; i < msg_desc->total_chunks; i++) {
         if (decoded_blocks.find(i) != decoded_blocks.end())   // Fuck C++
@@ -156,12 +164,19 @@ void lt_decoder::clean_chunks () {
 }
 
 bool lt_decoder::is_ready () {
-    if (msg_desc == NULL)
+    if (msg_desc == NULL) {
         return false;
-    else if (decoded_blocks.size() >= msg_desc->total_blocks)
+    } else if (ready) {
         return true;
-    else
+    } else if (decoded_blocks.size() >= msg_desc->total_blocks) {
+        ready = true;
+        glob_log.log(2, "Decoded lt message: %zu blocks in %d chunks (%.02f%% overhead)\n",
+                msg_desc->total_blocks, chunks_seen,
+                100.0 * (chunks_seen- msg_desc->total_blocks) / msg_desc->total_blocks);
+        return true;
+    } else {
         return false;
+    }
 }
 bool lt_decoder::is_finished () {
     return false;

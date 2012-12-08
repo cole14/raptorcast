@@ -9,7 +9,7 @@
 
 int main () {
     glob_log.set_level(5);
-    FILE *f = fopen("test/long", "rb");
+    FILE *f = fopen("test/med", "rb");
     fseek(f, 0, SEEK_END);
     long pos = ftell(f);
     fseek(f, 0, SEEK_SET);

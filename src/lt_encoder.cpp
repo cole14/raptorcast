@@ -42,7 +42,7 @@ void lt_encoder::init(unsigned char *d, size_t dl, size_t cl, size_t np){
 
     total_chunks = (size_t) ceil(1.0 * data_len / chunk_len);
     total_chunks += 1;  // Account for the descriptor
-    chunks_per_peer = (size_t) ceil(1.0 * total_chunks / num_peers);
+    chunks_per_peer = (size_t) ceil(2.0 * total_chunks / num_peers);
 
 
     // Split up the data into blocks

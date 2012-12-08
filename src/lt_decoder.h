@@ -19,6 +19,7 @@ class lt_decoder : public decoder {
         size_t get_len ();
         bool should_forward () { return true; }
 
+    private:
         struct Block {
             unsigned int id;
             unsigned char *data;
@@ -30,9 +31,8 @@ class lt_decoder : public decoder {
             std::vector<unsigned int> block_list;
             unsigned char *data;
         };
-        void build_block_list(Chunk *chunk);
-    private:
 
+        void build_block_list(Chunk *chunk);
         Block *chunk_to_block(Chunk *chunk);
 
         void reduce (Chunk *chunk, Block *block);
@@ -44,6 +44,9 @@ class lt_decoder : public decoder {
 
         lt_descriptor *msg_desc;
         lt_selector *lts;
+
+        int chunks_seen;
+        bool ready;
 };
 
 #endif /* __LT_DECODER_H */
