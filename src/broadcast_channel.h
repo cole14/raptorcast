@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <list>
 
 #include "channel_listener.h"
 #include "decoder.h"
@@ -82,12 +83,14 @@ class broadcast_channel {
 
         // Wrapper func for start_server for the purpose of threadding
         static void *start_server(void *);
+        // 
+        static void *do_forward(void *);
         // Wait for and handle network requests from other peers
         void accept_connections();
         // Deal with a chunk of a message
         void handle_chunk(int client_sock, struct message *in_msg);
         // Send a list of chunks to every peer in the group
-        void forward(struct message *msg_list, size_t num_msg);
+        void forward(std::list< struct message * > msg_list);
 
         // Put together a message containing the given data
         void construct_message(msg_t type, struct message *dest, const void *src, size_t n);
@@ -95,7 +98,16 @@ class broadcast_channel {
         // Create a tcp socket
         int make_socket();
         // Read a message from a tcp socket into 'msg'
-        ssize_t read_message(int sock, void *msg);
+        ssize_t read_message(int sock, struct message *msg);
+        // Send a message over a tcp socket
+        ssize_t send_message(int sock, struct message *msg);
+};
+
+struct forward_event {
+    int sock;
+    std::list< struct message * > msg_list;
+    unsigned int peer_id;
+    broadcast_channel *this_ptr;
 };
 
 #endif /* __BROADCAST_CHANNEL_H */
