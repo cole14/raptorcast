@@ -11,6 +11,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <utility>
+#include <stdint.h>
 
 #include "broadcast_channel.h"
 
@@ -396,6 +397,7 @@ void broadcast_channel::accept_connections() {
     unsigned int confirm_msgid;
     msg_t confirm_type;
     struct timespec cur_time;
+    int64_t time_dif;
     std::pair< int, struct timespec > time_info;
     //broadcast completion time logger
     std::string t_log_f_name("_time_msg_size.txt");
@@ -468,12 +470,16 @@ void broadcast_channel::accept_connections() {
                 time_info = start_times[confirm_msgid];
                 time_info.first -= 1;
                 if(time_info.first == 0){
+                    time_dif = cur_time.tv_sec - time_info.second.tv_sec;
+                    time_dif *= 1000000000;//convert to ns
+                    time_dif += (cur_time.tv_nsec - time_info.second.tv_nsec);
+                    time_dif /= 1000;
                     glob_log.log(2, "Received final confirmation message for msg %u\n", confirm_msgid);
-                    glob_log.log(2, "Took %lu microseconds!\n",
-                        (unsigned long)(cur_time.tv_nsec - time_info.second.tv_nsec) / 1000);
+                    glob_log.log(2, "Took %lld microseconds!\n",
+                        (long long)time_dif);
 
-                    t_log.log(1, "%s %lu %zu\n", msg_t_to_str(confirm_type),
-                        (unsigned long)(cur_time.tv_nsec - time_info.second.tv_nsec) / 1000, group_set.size());
+                    t_log.log(1, "%s %lld %zu\n", msg_t_to_str(confirm_type),
+                        (long long)time_dif, group_set.size());
                 }
                 start_times[confirm_msgid] = time_info;
                 break;
