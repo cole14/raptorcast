@@ -23,7 +23,7 @@ extern int errno;
 
 void dump_buf(int level, void *b, size_t len){
     unsigned char *buf = (unsigned char *)b;
-    glob_log.log(level+1, "dumping buf:");
+    glob_log.log(level+1, "dumping buf:\n");
     for(int i = 0; i < (int)len; i++){
         glob_log.log(level, "%02X ", buf[i]);
         if((i+1) % 16 == 0)
@@ -50,6 +50,8 @@ const char * msg_t_to_str(msg_t type) {
             return "TRAD";
         case COOP:
             return "COOP";
+        case LT:
+            return "LT";
         case RAPTOR:
             return "RAPTOR";
         default:
@@ -487,6 +489,7 @@ void broadcast_channel::accept_connections() {
             case CLIENT_SERVER:
             case TRAD:
             case COOP:
+            case LT:
                 handle_chunk(client_sock, &in_msg);
 
                 break;
@@ -543,6 +546,9 @@ void broadcast_channel::handle_chunk(int client_sock, struct message *in_msg) {
         msg = (struct message *)malloc(sizeof(struct message));
         memcpy(msg, in_msg, sizeof(struct message));
         msg_list.push_back(msg);
+
+        glob_log.log(2, "Recieved chunk %u of msg %u from peer %u\n",
+                in_msg->chunk_id, in_msg->msg_id, in_msg->cli_id);
 
         msg_dec->add_chunk(in_msg->data, in_msg->data_len, in_msg->chunk_id);
         dump_buf(3, in_msg->data, in_msg->data_len);
@@ -702,6 +708,8 @@ void broadcast_channel::broadcast(msg_t algo, unsigned char *buf, size_t buf_len
             out_msg.data_len = chunk_size;
             memset(&out_msg.data, 0, PACKET_LEN);
             memcpy(&(out_msg.data), chunk, chunk_size);
+
+            dump_buf(3, out_msg.data, out_msg.data_len);
 
             // Send the message
             if (send_message(sock, &out_msg) != sizeof(out_msg))

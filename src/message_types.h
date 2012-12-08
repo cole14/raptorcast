@@ -17,6 +17,7 @@ enum msg_t {
     CLIENT_SERVER,
     TRAD,
     COOP,
+    LT,
     RAPTOR
 };
 

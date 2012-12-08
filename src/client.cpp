@@ -126,11 +126,11 @@ void client::connect(){
 msg_t client::get_alg () {
     while (0xFULL) {
         printf("Which algorithm?\n");
-        printf("client-[s]erver, [t]raditional, [c]ooperative, [r]aptor, [b]ack\n");
+        printf("client-[s]erver, [t]raditional, [c]ooperative, [l]t, [r]aptor, [b]ack\n");
 
         //Print the prompt
         do {
-            printf("%s> ", name.c_str());
+            printf("\e[0m%s> ", name.c_str());
 
             //Read the command
             read_stripped_line();
@@ -145,6 +145,9 @@ msg_t client::get_alg () {
 
         } else if (strcmp(line_buf, "cooperative") == 0 || strcmp(line_buf, "c") == 0) {
             return COOP;
+
+        } else if (strcmp(line_buf, "lt") == 0 || strcmp(line_buf, "l") == 0) {
+            return LT;
 
         } else if (strcmp(line_buf, "raptor") == 0 || strcmp(line_buf, "r") == 0) {
             return RAPTOR;
@@ -166,7 +169,7 @@ void client::run_cli() {
     while (0xFULL) {
         do {
             //Print the prompt
-            printf("%s> ", name.c_str());
+            printf("\e[0m%s> ", name.c_str());
 
             //Read the command
             read_stripped_line();
@@ -208,13 +211,14 @@ void client::run_cli() {
             //Open the file
             FILE *fp = fopen(line_buf, "r");
             if(fp == NULL){
-                error(-1, errno, "Error opening '%s'", line_buf);
+                glob_log.log(1, "Could not read file %s: %s\n", line_buf, strerror(errno));
+                continue;
             }
 
             //Get the file length
             struct stat fp_stat;
             if(-1 == fstat(fileno(fp), &fp_stat)){
-                error(-1, errno, "Error stating '%s'", line_buf);
+                error(-1, errno, "Error statting '%s'", line_buf);
             }
 
             //Read the file into an in-memory buffer
@@ -230,14 +234,13 @@ void client::run_cli() {
 
         } else if (strcmp(line_buf, "debug-toggle") == 0 || strcmp(line_buf, "d") == 0) {
             printf("Debug mode is now %s\n", (chan->toggle_debug_mode()) ? "on" : "off");
+
         } else if (strcmp(line_buf, "log-level") == 0 || strcmp(line_buf, "l") == 0) {
             printf("Input new log level [1=quiet, 2=chatty, 3=verbose]: ");
             read_stripped_line();
             int new_level = strtol(line_buf, NULL, 10);
-            if(new_level < 1 || new_level > 3)
-                printf("ERR: log level must be between 1 and 3\n");
-            else
-                glob_log.set_level(new_level);
+            glob_log.set_level(new_level);
+
         } else if (strcmp(line_buf, "spin") == 0 || strcmp(line_buf, "s") == 0) {
             printf("Input spin time: ");
             read_stripped_line();

@@ -3,3 +3,4 @@
 a.out
 *.o
 bin/
+*time_msg_size.txt

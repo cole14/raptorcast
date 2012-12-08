@@ -4,6 +4,7 @@
 #include "client_server_encoder.h"
 #include "cooperative_encoder.h"
 #include "traditional_encoder.h"
+#include "lt_encoder.h"
 
 encoder *get_encoder(msg_t algo){
     switch(algo){
@@ -13,6 +14,8 @@ encoder *get_encoder(msg_t algo){
             return new cooperative_encoder();
         case TRAD:
             return new traditional_encoder();
+        case LT:
+            return new lt_encoder();
 
         default: return NULL;
     }

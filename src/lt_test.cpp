@@ -9,7 +9,7 @@
 
 int main () {
     glob_log.set_level(5);
-    FILE *f = fopen("test/long", "rb");
+    FILE *f = fopen("test/med", "rb");
     fseek(f, 0, SEEK_END);
     long pos = ftell(f);
     fseek(f, 0, SEEK_SET);
@@ -19,7 +19,7 @@ int main () {
     fclose(f);
 
     int seed = 42;
-    int total_blocks = 25;
+    int total_blocks = 100;
     int num_blocks;
     int *selected_blocks;
 
@@ -41,6 +41,7 @@ int main () {
         num_blocks = ltsB->select_blocks(i, &selected_blocks);
     }
 
+    /*
     printf("\n================================\n");
     printf("Generate/reverse test\n");
     printf("================================\n\n");
@@ -108,4 +109,5 @@ int main () {
             content_chunks,
             network_chunks,
             (1.0 * (network_chunks - num_blocks) / num_blocks));
+            */
 }
