@@ -130,7 +130,7 @@ msg_t client::get_alg () {
 
         //Print the prompt
         do {
-            printf("%s> ", name.c_str());
+            printf("\e[0m%s> ", name.c_str());
 
             //Read the command
             read_stripped_line();
@@ -169,7 +169,7 @@ void client::run_cli() {
     while (0xFULL) {
         do {
             //Print the prompt
-            printf("%s> ", name.c_str());
+            printf("\e[0m%s> ", name.c_str());
 
             //Read the command
             read_stripped_line();
