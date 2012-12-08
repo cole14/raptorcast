@@ -8,8 +8,8 @@ lt_selector::lt_selector(int s, int nb):
     seed(s),
     num_blocks(nb),
     max_degree(num_blocks / 2 + 1),
-    delta(0.05),
-    c(0.2),
+    delta(0.1),
+    c(0.1),
     k(nb)
 {
 
@@ -42,12 +42,12 @@ lt_selector::~lt_selector() {
  * basis for the robust distribution
  */
 double lt_selector::ideal_dist(int i) {
-    if (i < 0 || i > k)
+    if (i <= 0 || i > k)
         return 0;
     else if (i == 1)
-        return 1 / k;
+        return 1.0 / k;
     else // 1 < i <= k
-        return 1 / (i * (i - 1));
+        return 1.0 / (i * (i - 1));
 }
 
 /*
@@ -55,12 +55,12 @@ double lt_selector::ideal_dist(int i) {
  * to form the robust distribution
  */
 double lt_selector::extra_dist(int i) {
-    if (i < 0 || i > k)
+    if (i <= 0 || i > k)
         return 0;
     else if (i < R)
-        return R / (i * k);
+        return 1.0 * R / (i * k);
     else if (i == R)
-        return R * log(R / delta) / k;
+        return R * log(1.0 * R / delta) / k;
     else // R < i
         return 0;
 }
@@ -70,24 +70,26 @@ double lt_selector::extra_dist(int i) {
  * This depends on k, so it must be done dynamically.
  */
 void lt_selector::setup_distribution() {
-    R = c * log(k / delta) * sqrt(k);
+    R = (int) (c * log(1.0 * k / delta) * sqrt(1.0 * k));
     // Build our normalization constant
     beta = 0;
     for (int i = 1; i <= k; i++) {
         beta += ideal_dist(i) + extra_dist(i);
     }
 
-    rtab_size = 50;  // XXX change to 1024
+    int *rtp;
+    rtab_size = 1024;
     robust_table = new int[rtab_size];
-    unsigned t = 0;
-    printf("Generating table\n");
-    for (int i = 1; i < k && t < rtab_size; i++) {
-        int num_hits = (int) 1024 * (ideal_dist(i) + extra_dist(i)) / beta;
-        unsigned last = t + num_hits;
-        for (; t < last && t < rtab_size; t++) {
-            robust_table[t] = i;
-            printf("%d\n", i);
+    rtp = robust_table;
+    for (int i = 1; i <= k; i++) {
+        int num_hits = (int) (1024 * (ideal_dist(i) + extra_dist(i)) / beta);
+        for (int h = 0; h < num_hits ; h++) {
+            *rtp = i;
+            rtp++;
         }
+    }
+    for (; rtp < robust_table + rtab_size; rtp++) {
+        *rtp = 1;
     }
 
     generator.seed(seed);
