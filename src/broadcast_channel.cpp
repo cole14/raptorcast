@@ -547,6 +547,9 @@ void broadcast_channel::handle_chunk(int client_sock, struct message *in_msg) {
         memcpy(msg, in_msg, sizeof(struct message));
         msg_list.push_back(msg);
 
+        glob_log.log(2, "Recieved chunk %u of msg %u from peer %u\n",
+                in_msg->chunk_id, in_msg->msg_id, in_msg->cli_id);
+
         msg_dec->add_chunk(in_msg->data, in_msg->data_len, in_msg->chunk_id);
         dump_buf(3, in_msg->data, in_msg->data_len);
     }
