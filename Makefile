@@ -41,7 +41,7 @@ $(BINDIR)/%.o: $(SRCDIR)/%.cpp | $(BINDIR)
 
 #Rule to make final executable
 $(CLIENT): $(OBJS)
-	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
+	$(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
 
 
 # Rules for lt_test
@@ -49,7 +49,7 @@ bin/lt_test.o: src/lt_test.cpp | $(BINDIR)
 	$(CC) -c $(CFLAGS) $< -o $@
 
 $(LT_TEST): bin/logger.o bin/lt_test.o bin/lt_selector.o bin/lt_encoder.o bin/lt_decoder.o
-	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
+	$(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
 
 #Rule to clean the build
 clean:
