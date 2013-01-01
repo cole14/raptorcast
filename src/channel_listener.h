@@ -3,9 +3,9 @@
 
 #include <stddef.h>
 
-class channel_listener {
+class Channel_Listener {
     public:
-        virtual ~channel_listener();
+        virtual ~Channel_Listener();
 
         //This method is invoked by the broadcast channel upon final reception of a message.
         virtual void receive(unsigned char *buf, size_t buf_len) = 0;

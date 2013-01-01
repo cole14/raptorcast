@@ -5,6 +5,7 @@
 
 #include <error.h>
 #include <errno.h>
+#include <iostream>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,7 +16,6 @@
 
 #include "logger.h"
 
-#include <iostream>
 
 /*
  * Prints the usage statement.
@@ -28,16 +28,16 @@ static void usage(void){
  * Constructor. Initializes the broadcast_channel with this client's
  * self-identifying information.
  */
-client::client(std::string name, std::string port)
+Client::Client(std::string name, std::string port)
 :line_buf(NULL), line_buf_len(0), line_buf_filled_len(0), chan(NULL), name(name)
 {
-    chan = new broadcast_channel(name, port, this);
+    chan = new Broadcast_Channel(name, port, this);
 }
 
 /*
  * Destructor. Destroys the broadcast_channel.
  */
-client::~client(){
+Client::~Client(){
     free(line_buf);
     delete chan;
 }
@@ -45,7 +45,7 @@ client::~client(){
 /*
  * This function is called when the broadcast_channel receives a message.
  */
-void client::receive(unsigned char *buf, size_t buf_len){
+void Client::receive(unsigned char *buf, size_t buf_len){
     if(buf == NULL) return;
 
     glob_log.log(1, "Received message of len %zu:\n",buf_len);
@@ -56,7 +56,7 @@ void client::receive(unsigned char *buf, size_t buf_len){
     free(buf);
 }
 
-char *client::read_stripped_line(){
+char *Client::read_stripped_line(){
     //Read the line
     if(-1 == (line_buf_filled_len = getline(&line_buf, &line_buf_len, stdin))){
         error(-1, errno, "Unable to read hostname");
@@ -74,7 +74,7 @@ char *client::read_stripped_line(){
 /*
  * Reads a hostname from stdin. Trims off the trailing newline.
  */
-std::string client::read_hostname(void){
+std::string Client::read_hostname(void){
     //Construct the return string
     return std::string(read_stripped_line());
 }
@@ -82,7 +82,7 @@ std::string client::read_hostname(void){
 /*
  * Reads a port from stdin. Checks to make sure it's in the valid range for a port.
  */
-int client::read_port(void){
+int Client::read_port(void){
     long port = 0;
 
     //Read the line
@@ -102,7 +102,7 @@ int client::read_port(void){
  * the hostname and port of the bootstrap node to connect to, and then
  * uses the broadcast channel to make the connection.
  */
-void client::connect(){
+void Client::connect(){
     int port = 0;
 
     //Get the bootstrap node's hostname:port from the user
@@ -123,7 +123,7 @@ void client::connect(){
     fprintf(stdout, "Successfully connected!\n");
 }
 
-msg_t client::get_alg () {
+msg_t Client::get_alg () {
     while (0xFULL) {
         printf("Which algorithm?\n");
         printf("client-[s]erver, [t]raditional, [c]ooperative, [l]t, [r]aptor, [b]ack\n");
@@ -163,7 +163,7 @@ msg_t client::get_alg () {
 }
 
 
-void client::run_cli() {
+void Client::run_cli() {
     msg_t algorithm;
 
     while (0xFULL) {
@@ -264,7 +264,7 @@ int main(int argc, char *argv[]){
     }
 
     //Initialize the client
-    client c(argv[1], argv[2]);
+    Client c(argv[1], argv[2]);
 
     // Connect to the group
     c.connect();
