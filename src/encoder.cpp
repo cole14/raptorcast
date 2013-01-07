@@ -9,6 +9,25 @@
 // Interface for the broadcast channel
 Outgoing_Message::Outgoing_Message(char *d, size_t d_len,
         size_t n_peers, size_t c_len) {
+    //Sanity checks
+    if(d == NULL)
+        error(-1, 0, "Unable to initialize outgoing message with NULL data");
+    if(d_len == 0)
+        error(-1, 0, "Unable to initialize outgoing message with zero-length data");
+    if(c_len == 0)
+        error(-1, 0, "Unable to initialize outgoing message "
+                "with zero-length chunks");
+    if (n_peers == 0)
+        error(-1, 0, "Unable to initialize outgoing message with zero peers");
+
+    data_len = dl;
+    chunk_len = cl;
+    num_peers = np;
+
+    num_blocks = (size_t) ceil(1.0 * data_len / chunk_len);
+
+    // Split up the data into blocks
+    split_blocks(d, dl);
 }
 
 std::vector<char *> *Outgoing_Message::get_chunks(unsigned peer) {
@@ -17,7 +36,10 @@ std::vector<char *> *Outgoing_Message::get_chunks(unsigned peer) {
 
 // Interface for the encoder
 char *Outgoing_Message::get_block(unsigned index) {
-    return NULL;
+    char *ptr = data;
+    ptr += index * chunk_len;
+    if (ptr > data + data_len) return NULL;
+    return ptr;
 }
 
 size_t Outgoing_Message::get_num_blocks() {
@@ -30,6 +52,21 @@ size_t Outgoing_Message::get_block_len() {
 
 size_t Outgoing_Message::get_num_peers() {
     return num_peers;
+}
+
+/* Generates a vector of pointers to the different blocks in the data */
+void Outgoing_Message::split_blocks(unsigned char *data, size_t data_len) {
+    // Pad the data to an integer number of chunks
+    size_t padded_size = total_chunks * chunk_len;
+    padded_data = (unsigned char *) malloc(padded_size);
+    memset(padded_data, 0, padded_size);
+    memcpy(padded_data, data, data_len);
+
+    // Split up the data
+    unsigned char *b_pos;
+    for (b_pos = padded_data; b_pos < padded_data+padded_size; b_pos += chunk_len) {
+        blocks.push_back(b_pos);
+    }
 }
 
 encoder *get_encoder(msg_t algo){

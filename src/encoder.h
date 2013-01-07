@@ -35,10 +35,14 @@ class Outgoing_Message : public Encoder_Context, public Encoder_Interface {
         size_t get_num_peers();
 
     private :
-        char *data;
+        unsigned char *padded_data;
+        std::vector<unsigned char*> blocks;
         size_t data_len;
         size_t num_peers;
+        size_t num_blocks;
         size_t chunk_len;
+
+        void split_blocks(unsigned char *data, size_t data_len);
 };
 
 
