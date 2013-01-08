@@ -14,25 +14,25 @@ Client_Server_Encoder::Client_Server_Encoder(Encoder_Context *ctx) :
     chunk_len(0)
 { }
 
-std::vector<int> *Client_Server_Encoder::get_chunk_list(unsigned peer) {
-    std::vector<int> *chunk_list = new std::vector<int>();
+std::vector<unsigned> *Client_Server_Encoder::get_chunk_list(unsigned peer) {
+    std::vector<unsigned> *chunk_list = new std::vector<unsigned>();
 
     // For the client-server broadcast, we send every chunk to every peer
-    for (int i = 0; i < ctx->get_num_blocks(); i++) {
+    for (unsigned i = 0; i < context->get_num_blocks(); i++) {
         chunk_list->push_back(i);
     }
     return chunk_list;
 }
 
 size_t Client_Server_Encoder::get_chunk(unsigned char **dest, unsigned chunk_id) {
-    unsigned char *block = ctx->get_block(chunk_id);
-    if (chunk == NULL) {
+    unsigned char *block = context->get_block(chunk_id);
+    if (block == NULL) {
         *dest = NULL;
         return 0;
     }
 
-    unsigned char *chunk = malloc(ctx->get_block_len());
-    memcpy(chunk, block, ctx->get_block_len());
+    unsigned char *chunk = (unsigned char *)malloc(context->get_block_len());
+    memcpy(chunk, block, context->get_block_len());
     *dest = chunk;
-    return ctx->get_block_len();
+    return context->get_block_len();
 }
