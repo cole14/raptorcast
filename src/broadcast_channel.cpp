@@ -679,7 +679,7 @@ void Broadcast_Channel::broadcast(msg_t algo, unsigned char *data, size_t data_l
     // Continually generate chunks until the decoder is out of chunks
     size_t chunk_size = 0;
     unsigned char *chunk = NULL;
-    unsigned int chunk_id = 0;
+    unsigned chunk_id = 0;
     struct message out_msg;
     for (int i = 0; i < (int)group_set.size(); i++) {
         peer =  group_set[i];
@@ -699,12 +699,12 @@ void Broadcast_Channel::broadcast(msg_t algo, unsigned char *data, size_t data_l
         // XXX Check that peer id is what it should be (Dan 1/8)
         // Get chunks to send to peer
         std::vector< std::pair<unsigned, unsigned char *> > *chunks;
-        chunks = msg_handler.get_chunks(peer->id);
+        chunks = msg_handler->get_chunks(peer->id);
 
-        for (int c = 0; c < (int)chunks.size(); c++) {
+        for (int c = 0; c < (int)chunks->size(); c++) {
             // Extract the chunk data
-            unsigned chunk_id = chunks[c].first;
-            unsigned char *chunk = chunks[c].second;
+            chunk_id = (*chunks)[c].first;
+            chunk = (*chunks)[c].second;
 
             // Build the message around the chunk
             out_msg.type = algo;
@@ -742,12 +742,8 @@ void Broadcast_Channel::broadcast(msg_t algo, unsigned char *data, size_t data_l
         // Close socket
         if (close(sock) != 0)
             error(-1, errno, "Error closing peer socket");
-
-        // Reset the encoder for the next peer
-        msg_enc->next_stream();
     }
-
-    delete msg_enc;
+    delete msg_handler;
 }
 
 /*
