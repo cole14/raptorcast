@@ -14,9 +14,9 @@ SRC_FILES=	client.cpp
 SRC_FILES+=	broadcast_channel.cpp
 SRC_FILES+=	channel_listener.cpp
 SRC_FILES+=	client_server_encoder.cpp client_server_decoder.cpp
-SRC_FILES+=	cooperative_encoder.cpp cooperative_decoder.cpp
-SRC_FILES+=	traditional_encoder.cpp traditional_decoder.cpp
-SRC_FILES+= lt_encoder.cpp lt_decoder.cpp lt_selector.cpp
+#SRC_FILES+=	cooperative_encoder.cpp cooperative_decoder.cpp
+#SRC_FILES+=	traditional_encoder.cpp traditional_decoder.cpp
+#SRC_FILES+= lt_encoder.cpp lt_decoder.cpp lt_selector.cpp
 SRC_FILES+=	encoder.cpp decoder.cpp
 SRC_FILES+=	logger.cpp
 

@@ -5,6 +5,9 @@
 
 #include "message_types.h"
 
+// Forward declaration for use in Outgoing_Message
+class Encoder;
+
 // Interface between the outgoing message and the encoder
 class Encoder_Context {
     public:
@@ -15,21 +18,17 @@ class Encoder_Context {
         // Additional accessors as needed
 };
 
-// Interface between the outgoing message and the broadcast channel
-// XXX better (more illustrative) name
-class Encoder_Interface {
+class Outgoing_Message : public Encoder_Context {
     public :
-        virtual std::vector<char *> *get_chunks(unsigned peer) = 0;
-};
+        // Destructor
+        ~Outgoing_Message();
 
-class Outgoing_Message : public Encoder_Context, public Encoder_Interface {
-    public :
         // B_Chan interface
-        Outgoing_Message(char *data, size_t d_len, size_t n_peers, size_t c_len);
-        std::vector<char *> *get_chunks(unsigned peer);
+        Outgoing_Message(msg_t algo, char *data, size_t d_len, size_t n_peers, size_t c_len);
+        std::vector< std::pair<unsigned, unsigned char *> > *get_chunks(unsigned peer);
 
         // Encoder iface
-        char *get_block(unsigned index);
+        unsigned char *get_block(unsigned index);
         size_t get_num_blocks();
         size_t get_block_len();
         size_t get_num_peers();
@@ -42,19 +41,26 @@ class Outgoing_Message : public Encoder_Context, public Encoder_Interface {
         size_t num_blocks;
         size_t chunk_len;
 
+        Encoder *encoder;
+
+        // Pad the data and split it up into chunks
         void split_blocks(unsigned char *data, size_t data_len);
+
+        // Get an encoder object for message type 'algo'
+        Encoder *get_encoder(msg_t algo);
 };
 
 
-class encoder {
+class Encoder {
     public:
-        virtual ~encoder() { }
-        virtual int generate_chunk(unsigned char **dest, unsigned int *chunk_id) = 0;
-        virtual void init(unsigned char *data, size_t data_len, size_t chunk_len, size_t num_peers) = 0;
-        virtual void next_stream() = 0;
+        Encoder(Encoder_Context *ctx) : context(ctx) { }
+        virtual ~Encoder() { }
+        virtual std::vector<int> *get_chunk_list(unsigned peer) = 0;
+        virtual size_t get_chunk(unsigned char **dest, unsigned chunk_id) = 0;
+
+    protected:
+        Encoder_Context *context;
 };
 
-// Get an encoder object for message type 'algo'
-encoder *get_encoder(msg_t algo);
 
 #endif /* __ENCODER_H */

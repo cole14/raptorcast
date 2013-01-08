@@ -6,8 +6,12 @@
 #include "traditional_encoder.h"
 #include "lt_encoder.h"
 
+Outgoing_Message::~Outgoing_Message() {
+    free(padded_data);
+}
+
 // Interface for the broadcast channel
-Outgoing_Message::Outgoing_Message(char *d, size_t d_len,
+Outgoing_Message::Outgoing_Message(msg_t algo, char *d, size_t d_len,
         size_t n_peers, size_t c_len) {
     //Sanity checks
     if(d == NULL)
@@ -28,6 +32,9 @@ Outgoing_Message::Outgoing_Message(char *d, size_t d_len,
 
     // Split up the data into blocks
     split_blocks(d, dl);
+
+    // Pick an encoder type to use
+    encoder = get_encoder(algo);
 }
 
 std::vector<char *> *Outgoing_Message::get_chunks(unsigned peer) {
@@ -43,7 +50,7 @@ char *Outgoing_Message::get_block(unsigned index) {
 }
 
 size_t Outgoing_Message::get_num_blocks() {
-    return ceil(data_len / chunk_len);
+    return num_blocks;
 }
 
 size_t Outgoing_Message::get_block_len() {
@@ -69,16 +76,18 @@ void Outgoing_Message::split_blocks(unsigned char *data, size_t data_len) {
     }
 }
 
-encoder *get_encoder(msg_t algo){
+Encoder *Outgoing_Message::get_encoder(msg_t algo){
     switch(algo){
         case CLIENT_SERVER:
-            return new client_server_encoder();
+            return new Client_Server_Encoder();
+            /*
         case COOP:
-            return new cooperative_encoder();
+            return new Cooperative_Encoder();
         case TRAD:
-            return new traditional_encoder();
+            return new Traditional_Encoder();
         case LT:
-            return new lt_encoder();
+            return new Lt_Encoder();
+            */
 
         default: return NULL;
     }

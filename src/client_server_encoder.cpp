@@ -5,49 +5,34 @@
 
 #include "client_server_encoder.h"
 
-client_server_encoder::client_server_encoder()
-:data(NULL),data_pos(0),data_len(0),next_chunk_id(0),chunk_len(0)
+Client_Server_Encoder::Client_Server_Encoder(Encoder_Context *ctx) :
+    Encoder(ctx),
+    data(NULL),
+    data_pos(0),
+    data_len(0),
+    next_chunk_id(0),
+    chunk_len(0)
 { }
 
-void client_server_encoder::init(unsigned char *d, size_t dl, size_t cl, size_t np){
-    //Sanity checks
-    if(d == NULL)
-        error(-1, 0, "Unable to initialize client_server_encoder with NULL data");
+std::vector<int> *Client_Server_Encoder::get_chunk_list(unsigned peer) {
+    std::vector<int> *chunk_list = new std::vector<int>();
 
-    data = d;
-    data_len = dl;
-    chunk_len = cl;
-    num_peers = np;
-
-    if(data_len == 0)
-        error(-1, 0, "Unable to initialize client_server_encoder with zero-length data");
-    if(chunk_len == 0)
-        error(-1, 0, "Unable to initialize client_server_encoder with zero-length chunks");
-    if (num_peers == 0)
-        error(-1, 0, "Unable to initialize client_server_encoder with zero peers");
+    // For the client-server broadcast, we send every chunk to every peer
+    for (int i = 0; i < ctx->get_num_blocks(); i++) {
+        chunk_list->push_back(i);
+    }
+    return chunk_list;
 }
 
-int client_server_encoder::generate_chunk(unsigned char **dest, unsigned int *chunk_id){
-    unsigned char *chunk = NULL;
-    size_t len = data_len - data_pos;
-    if(len > chunk_len) len = chunk_len;
-
-    if(len <= 0) {
+size_t Client_Server_Encoder::get_chunk(unsigned char **dest, unsigned chunk_id) {
+    unsigned char *block = ctx->get_block(chunk_id);
+    if (chunk == NULL) {
         *dest = NULL;
         return 0;
     }
 
-    chunk = (unsigned char *)calloc(len, sizeof(unsigned char));
-    memset(chunk, 0, len);
-    memcpy(chunk, data + data_pos, len);
-    data_pos += len;
-
+    unsigned char *chunk = malloc(ctx->get_block_len());
+    memcpy(chunk, block, ctx->get_block_len());
     *dest = chunk;
-    *chunk_id = next_chunk_id++;
-    return len;
-}
-
-void client_server_encoder::next_stream() {
-    data_pos = 0;
-    next_chunk_id = 0;
+    return ctx->get_block_len();
 }
