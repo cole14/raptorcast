@@ -11,7 +11,7 @@ class Encoder;
 // Interface between the outgoing message and the encoder
 class Encoder_Context {
     public:
-        virtual char *get_block(unsigned index) = 0;
+        virtual unsigned char *get_block(unsigned index) = 0;
         virtual size_t get_num_blocks() = 0;
         virtual size_t get_block_len() = 0;
         virtual size_t get_num_peers() = 0;
@@ -24,7 +24,7 @@ class Outgoing_Message : public Encoder_Context {
         ~Outgoing_Message();
 
         // B_Chan interface
-        Outgoing_Message(msg_t algo, char *data, size_t d_len, size_t n_peers, size_t c_len);
+        Outgoing_Message(msg_t algo, unsigned char *data, size_t d_len, size_t n_peers, size_t c_len);
         std::vector< std::pair<unsigned, unsigned char *> > *get_chunks(unsigned peer);
 
         // Encoder iface
@@ -55,7 +55,7 @@ class Encoder {
     public:
         Encoder(Encoder_Context *ctx) : context(ctx) { }
         virtual ~Encoder() { }
-        virtual std::vector<int> *get_chunk_list(unsigned peer) = 0;
+        virtual std::vector<unsigned> *get_chunk_list(unsigned peer) = 0;
         virtual size_t get_chunk(unsigned char **dest, unsigned chunk_id) = 0;
 
     protected:
