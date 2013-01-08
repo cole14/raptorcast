@@ -9,7 +9,7 @@ struct coop_descriptor {
     size_t chunk_len;
 };
 
-class cooperative_encoder : public encoder {
+class cooperative_encoder : public Encoder {
     public:
         cooperative_encoder();
         virtual ~cooperative_encoder() { }
