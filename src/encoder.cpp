@@ -9,6 +9,8 @@
 #include "traditional_encoder.h"
 #include "lt_encoder.h"
 
+#include "logger.h"
+
 using namespace std;
 
 Outgoing_Message::~Outgoing_Message() {
@@ -43,7 +45,6 @@ Outgoing_Message::Outgoing_Message(msg_t algo, unsigned char *d, size_t d_len,
 }
 
 vector<pair<unsigned, unsigned char *> > *Outgoing_Message::get_chunks(unsigned peer) {
-    if (peer > num_peers) return NULL;
     vector<unsigned> *chunk_list = encoder->get_chunk_list(peer);
     vector<pair<unsigned, unsigned char *>> *chunks;
     chunks = new vector<pair<unsigned, unsigned char *>>();
@@ -54,6 +55,7 @@ vector<pair<unsigned, unsigned char *> > *Outgoing_Message::get_chunks(unsigned 
         chunks->push_back(make_pair((*chunk_list)[i], chunk));
     }
 
+    delete chunk_list;
     return chunks;
 }
 

@@ -672,19 +672,14 @@ void Broadcast_Channel::broadcast(msg_t algo, unsigned char *data, size_t data_l
         error(-1, errno, "Unable to get current time");
     start_times[msg_counter] = std::make_pair((int)group_set.size()-1, start_time);
 
-
-
-
-
     // Continually generate chunks until the decoder is out of chunks
-    size_t chunk_size = 0;
     unsigned char *chunk = NULL;
     unsigned chunk_id = 0;
     struct message out_msg;
     for (int i = 0; i < (int)group_set.size(); i++) {
         peer =  group_set[i];
 
-        // XXX will this mess up encoders that are peer id dependent? (Dan 1/8)
+        // XXX Will this mess up encoders that are peer id dependent? (Dan 1/8)
         // Don't broadcast to yourself
         if(peer->id == my_info->id) continue;
 
@@ -714,7 +709,7 @@ void Broadcast_Channel::broadcast(msg_t algo, unsigned char *data, size_t data_l
             out_msg.ttl = 1;
             out_msg.data_len = PACKET_LEN;      // The data is padded, so this is always true
             memset(&out_msg.data, 0, PACKET_LEN);
-            memcpy(&(out_msg.data), chunk, chunk_size);
+            memcpy(&(out_msg.data), chunk, PACKET_LEN);
 
             dump_buf(3, out_msg.data, out_msg.data_len);
 
