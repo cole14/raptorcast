@@ -672,16 +672,22 @@ void Broadcast_Channel::broadcast(msg_t algo, unsigned char *data, size_t data_l
         error(-1, errno, "Unable to get current time");
     start_times[msg_counter] = std::make_pair((int)group_set.size()-1, start_time);
 
+    // Ensures that all peer requests are contiguous ints starting at 0 and ending at
+    //   group_set.size()-2 (because we don't broadcast to ourselves.
+    unsigned peer_count = 0;
+
     // Continually generate chunks until the decoder is out of chunks
     unsigned char *chunk = NULL;
     unsigned chunk_id = 0;
     struct message out_msg;
-    for (int i = 0; i < (int)group_set.size(); i++) {
-        peer =  group_set[i];
+    for (unsigned i = 0; i < group_set.size(); i++, peer_count++) {
+        peer = group_set[i];
 
-        // XXX Will this mess up encoders that are peer id dependent? (Dan 1/8)
         // Don't broadcast to yourself
-        if(peer->id == my_info->id) continue;
+        if(peer->id == my_info->id) {
+            peer_count--;
+            continue;
+        }
 
         // Setup the socket
         sock = make_socket();
@@ -691,10 +697,9 @@ void Broadcast_Channel::broadcast(msg_t algo, unsigned char *data, size_t data_l
                     sizeof(peer->ip)) < 0)
             error(-1, errno, "Could not connect to peer %s", cli_to_str(peer));
 
-        // XXX Check that peer id is what it should be (Dan 1/8)
         // Get chunks to send to peer
         std::vector< std::pair<unsigned, unsigned char *> > *chunks;
-        chunks = msg_handler->get_chunks(peer->id);
+        chunks = msg_handler->get_chunks(peer_count);
 
         for (int c = 0; c < (int)chunks->size(); c++) {
             // Extract the chunk data

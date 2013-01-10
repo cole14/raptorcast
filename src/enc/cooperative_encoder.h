@@ -9,13 +9,12 @@ struct coop_descriptor {
     size_t chunk_len;
 };
 
-class cooperative_encoder : public Encoder {
+class Cooperative_Encoder : public Encoder {
     public:
-        cooperative_encoder();
-        virtual ~cooperative_encoder() { }
-        int generate_chunk(unsigned char **dest, unsigned int *chunk_id);
-        void init(unsigned char *data, size_t data_len, size_t chunk_len, size_t num_peers);
-        void next_stream();
+        Cooperative_Encoder(Encoder_Context *ctx);
+        virtual ~Cooperative_Encoder() { }
+        std::vector<unsigned> *get_chunk_list(unsigned peer);
+        size_t get_chunk(unsigned char **dest, unsigned chunk_id);
 
     private:
         unsigned char *data;

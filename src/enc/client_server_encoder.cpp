@@ -6,12 +6,7 @@
 #include "client_server_encoder.h"
 
 Client_Server_Encoder::Client_Server_Encoder(Encoder_Context *ctx) :
-    Encoder(ctx),
-    data(NULL),
-    data_pos(0),
-    data_len(0),
-    next_chunk_id(0),
-    chunk_len(0)
+    Encoder(ctx)
 { }
 
 std::vector<unsigned> *Client_Server_Encoder::get_chunk_list(unsigned peer) {
