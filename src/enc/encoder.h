@@ -3,7 +3,7 @@
 
 #include <vector>
 
-#include "message_types.h"
+#include "../message_types.h"
 
 // Forward declaration for use in Outgoing_Message
 class Encoder;

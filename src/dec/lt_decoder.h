@@ -5,8 +5,7 @@
 #include <map>
 
 #include "decoder.h"
-#include "lt_decoder.h"
-#include "lt_encoder.h"
+#include "lt_common.h"
 
 class lt_decoder : public decoder {
     public:

@@ -3,7 +3,7 @@
 #include <string.h>
 
 #include "cooperative_decoder.h"
-#include "cooperative_encoder.h"
+#include "enc/cooperative_encoder.h"
 
 #include "logger.h"
 

@@ -12,8 +12,8 @@
 #include <vector>
 
 #include "channel_listener.h"
-#include "decoder.h"
-#include "encoder.h"
+#include "dec/decoder.h"
+#include "enc/encoder.h"
 
 #include "message_types.h"
 
