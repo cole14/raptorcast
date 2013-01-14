@@ -20,8 +20,7 @@ void cooperative_decoder::add_chunk (unsigned char * d, size_t len, unsigned int
     if (len == 0) {
         // End of transmission, ignore
         return;
-    }
-    if (id == 0) {
+    } else if (id == 0) {
         if (msg_desc != NULL) {
             // We've already been inited, which means that this is just a
             // transmission terminator.  Ignore it

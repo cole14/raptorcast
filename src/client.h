@@ -15,6 +15,7 @@ class Client : public Channel_Listener {
 
     private:
         //helper stuffs
+        void print_prompt();
         std::string read_hostname(void);
         char *read_stripped_line(void);
         int read_port(void);

@@ -42,6 +42,10 @@ Client::~Client(){
     delete chan;
 }
 
+void Client::print_prompt() {
+    printf("\e[0m%s> ", name.c_str());
+}
+
 /*
  * This function is called when the broadcast_channel receives a message.
  */
@@ -54,6 +58,8 @@ void Client::receive(unsigned char *buf, size_t buf_len){
     }
     glob_log.log(1, "\n");
     free(buf);
+    print_prompt();
+    fflush(stdout);
 }
 
 char *Client::read_stripped_line(){
@@ -128,9 +134,8 @@ msg_t Client::get_alg () {
         printf("Which algorithm?\n");
         printf("client-[s]erver, [t]raditional, [c]ooperative, [l]t, [r]aptor, [b]ack\n");
 
-        //Print the prompt
         do {
-            printf("\e[0m%s> ", name.c_str());
+            print_prompt();
 
             //Read the command
             read_stripped_line();
@@ -168,8 +173,7 @@ void Client::run_cli() {
 
     while (0xFULL) {
         do {
-            //Print the prompt
-            printf("\e[0m%s> ", name.c_str());
+            print_prompt();
 
             //Read the command
             read_stripped_line();
