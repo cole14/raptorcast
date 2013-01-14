@@ -3,9 +3,9 @@
 
 #include "client_server_encoder.h"
 
-class traditional_encoder : public client_server_encoder {
+class traditional_encoder : public Client_Server_Encoder {
     public:
-        traditional_encoder() { }
+        traditional_encoder(Encoder_Context *ctx) : Client_Server_Encoder(ctx) { }
         virtual ~traditional_encoder() { }
 };
 

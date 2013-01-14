@@ -4,10 +4,10 @@
 #include "channel_listener.h"
 #include "broadcast_channel.h"
 
-class client : public channel_listener {
+class Client : public Channel_Listener {
     public:
-        client(std::string name, std::string port);
-        ~client();
+        Client(std::string name, std::string port);
+        ~Client();
 
         void receive(unsigned char *buf, size_t buf_len);
         void connect();
@@ -22,7 +22,7 @@ class client : public channel_listener {
         size_t line_buf_len;
         ssize_t line_buf_filled_len;
 
-        broadcast_channel *chan;
+        Broadcast_Channel *chan;
         std::string name;
 
         msg_t get_alg();

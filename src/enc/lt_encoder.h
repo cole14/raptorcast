@@ -10,7 +10,7 @@
 
 
 
-class lt_encoder : public encoder {
+class lt_encoder : public Encoder {
     public :
         lt_encoder();
         virtual ~lt_encoder() {}

@@ -1,7 +1,7 @@
 #ifndef __DECODER_H
 #define __DECODER_H
 
-#include "message_types.h"
+#include "../message_types.h"
 
 class decoder {
     public:

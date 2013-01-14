@@ -5,13 +5,14 @@
 #include <netinet/ip.h>
 #include <pthread.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <time.h>
 #include <unistd.h>
 #include <utility>
-#include <stdint.h>
 
 #include "broadcast_channel.h"
 
@@ -70,7 +71,7 @@ const char *cli_to_str(struct client_info *cli) {
     return str;
 }
 
-broadcast_channel::~broadcast_channel(void)
+Broadcast_Channel::~Broadcast_Channel(void)
 {
     //Delete the group_set
     for(std::vector< struct client_info * >::iterator it = group_set.begin(); it != group_set.end(); it++){
@@ -79,7 +80,7 @@ broadcast_channel::~broadcast_channel(void)
 }
 
 //Default constructor - initialize the port member
-broadcast_channel::broadcast_channel(std::string name, std::string port, channel_listener *lstnr){
+Broadcast_Channel::Broadcast_Channel(std::string name, std::string port, Channel_Listener *lstnr){
     //Init members
     listener = lstnr;
     msg_counter = 0;
@@ -140,7 +141,7 @@ broadcast_channel::broadcast_channel(std::string name, std::string port, channel
 
 }
 
-client_info *broadcast_channel::get_peer_by_id(unsigned int id) {
+client_info *Broadcast_Channel::get_peer_by_id(unsigned int id) {
     for (unsigned int i = 0; i < group_set.size(); i++) {
         if (group_set[i]->id == id) {
             return group_set[i];
@@ -149,11 +150,11 @@ client_info *broadcast_channel::get_peer_by_id(unsigned int id) {
     return NULL;
 }
 
-bool broadcast_channel::toggle_debug_mode(){
+bool Broadcast_Channel::toggle_debug_mode(){
     return (debug_mode = !debug_mode);
 }
 
-int broadcast_channel::make_socket(){
+int Broadcast_Channel::make_socket(){
     int arg = 1;
     int sock;
 
@@ -169,7 +170,7 @@ int broadcast_channel::make_socket(){
     return sock;
 }
 
-void broadcast_channel::construct_message(msg_t type, struct message *dest, const void *src, size_t n) {
+void Broadcast_Channel::construct_message(msg_t type, struct message *dest, const void *src, size_t n) {
     memset(dest, 0, sizeof(&dest));
     dest->type = type;
     dest->cli_id = my_info->id;
@@ -183,7 +184,7 @@ void broadcast_channel::construct_message(msg_t type, struct message *dest, cons
     }
 }
 
-ssize_t broadcast_channel::read_message(int sock, struct message *msg) {
+ssize_t Broadcast_Channel::read_message(int sock, struct message *msg) {
     ssize_t cur_read = 0;
     size_t tot_read = 0;
 
@@ -199,7 +200,7 @@ ssize_t broadcast_channel::read_message(int sock, struct message *msg) {
     return (ssize_t)tot_read;
 }
 
-ssize_t broadcast_channel::send_message(int sock, struct message *msg) {
+ssize_t Broadcast_Channel::send_message(int sock, struct message *msg) {
     ssize_t cur_sent = 0;
     size_t tot_sent = 0;
 
@@ -216,7 +217,7 @@ ssize_t broadcast_channel::send_message(int sock, struct message *msg) {
     return (ssize_t)tot_sent;
 }
 
-void broadcast_channel::print_peers(int indent) {
+void Broadcast_Channel::print_peers(int indent) {
     struct client_info *peer;
     for (unsigned int i = 0; i < group_set.size(); i++) {
         peer = group_set[i];
@@ -232,7 +233,7 @@ void broadcast_channel::print_peers(int indent) {
  * about us complete with ID, and then 1 or more PEER messages containing info
  * on the other peers in the network.
  */
-bool broadcast_channel::get_peer_list(std::string hostname, int port) {
+bool Broadcast_Channel::get_peer_list(std::string hostname, int port) {
     int sock;
     struct addrinfo *strap_h;
     struct sockaddr_in *strap_addr;
@@ -290,7 +291,7 @@ bool broadcast_channel::get_peer_list(std::string hostname, int port) {
  * list.  They will respond with a READY, indicating that they have added us to
  * their peer list, and are OK to receive messages from us.
  */
-bool broadcast_channel::notify_peers() {
+bool Broadcast_Channel::notify_peers() {
     int sock;
     struct message in_msg, out_msg;
     struct client_info *peer;
@@ -334,7 +335,7 @@ bool broadcast_channel::notify_peers() {
     return true;
 }
 
-bool broadcast_channel::send_peer_list(int sock, struct client_info *target) {
+bool Broadcast_Channel::send_peer_list(int sock, struct client_info *target) {
     struct message out_msg;
     struct client_info *peer;
 
@@ -364,7 +365,7 @@ bool broadcast_channel::send_peer_list(int sock, struct client_info *target) {
     return true;
 }
 
-void broadcast_channel::add_peer(struct message *in_msg) {
+void Broadcast_Channel::add_peer(struct message *in_msg) {
     if (in_msg->type != PEER)
         error(-1, EIO, "Tried to add peer from non-peer message");
 
@@ -376,20 +377,20 @@ void broadcast_channel::add_peer(struct message *in_msg) {
     glob_log.log(3, "received peer request! Peer %s\n", cli_to_str(peer_info));
 }
 
-unsigned int broadcast_channel::get_unused_id() {
+unsigned int Broadcast_Channel::get_unused_id() {
     unsigned int max_used = 0;
     for (int i = 0; i < (int) group_set.size(); i++)
         if (group_set[i]->id > max_used) max_used = group_set[i]->id;
     return max_used + 1;
 }
 
-void *broadcast_channel::start_server(void *args) {
-    broadcast_channel *bc = (broadcast_channel *) args;
+void *Broadcast_Channel::start_server(void *args) {
+    Broadcast_Channel *bc = (Broadcast_Channel *) args;
     bc->accept_connections();
     return NULL;
 }
 
-void broadcast_channel::accept_connections() {
+void Broadcast_Channel::accept_connections() {
     int client_sock;
     struct message in_msg, out_msg;
     struct sockaddr_in client_addr;
@@ -508,7 +509,7 @@ void broadcast_channel::accept_connections() {
     }
 }
 
-void broadcast_channel::handle_chunk(int client_sock, struct message *in_msg) {
+void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
     std::list< struct message * > msg_list;
     struct message *msg = NULL;
     decoder *msg_dec = NULL;
@@ -597,7 +598,7 @@ void broadcast_channel::handle_chunk(int client_sock, struct message *in_msg) {
     }
 }
 
-bool broadcast_channel::join(std::string hostname, int port){
+bool Broadcast_Channel::join(std::string hostname, int port){
     if (hostname.empty()) {
         // Start new broadcast group
         my_info->id = 1;
@@ -619,7 +620,7 @@ bool broadcast_channel::join(std::string hostname, int port){
     return true;
 }
 
-void broadcast_channel::quit() {
+void Broadcast_Channel::quit() {
     int sock;
     struct client_info *peer;
     struct message out_msg;
@@ -655,17 +656,12 @@ void broadcast_channel::quit() {
     pthread_join(receiver_thread, NULL);
 }
 
-void broadcast_channel::broadcast(msg_t algo, unsigned char *buf, size_t buf_len){
+void Broadcast_Channel::broadcast(msg_t algo, unsigned char *data, size_t data_len){
     int sock;
     struct client_info *peer;
 
-    // Get the msg encoder for the given algorithm type
-    encoder *msg_enc = get_encoder(algo);
-    if(msg_enc == NULL)
-        error(-1, 0, "Unable to get encoder for algorithm type %d", (int)algo);
-
-    // Set up the encoder with the message data and chunk size
-    msg_enc->init(buf, buf_len, PACKET_LEN, group_set.size()-1);
+    Outgoing_Message *msg_handler;
+    msg_handler = new Outgoing_Message(algo, data, data_len, group_set.size()-1, PACKET_LEN);
 
     // Increment the message id counter
     msg_counter++;
@@ -677,14 +673,14 @@ void broadcast_channel::broadcast(msg_t algo, unsigned char *buf, size_t buf_len
     start_times[msg_counter] = std::make_pair((int)group_set.size()-1, start_time);
 
     // Continually generate chunks until the decoder is out of chunks
-    size_t chunk_size = 0;
     unsigned char *chunk = NULL;
-    unsigned int chunk_id = 0;
+    unsigned chunk_id = 0;
     struct message out_msg;
     for (int i = 0; i < (int)group_set.size(); i++) {
         peer =  group_set[i];
 
-        //Don't broadcast to yourself
+        // XXX Will this mess up encoders that are peer id dependent? (Dan 1/8)
+        // Don't broadcast to yourself
         if(peer->id == my_info->id) continue;
 
         // Setup the socket
@@ -695,19 +691,25 @@ void broadcast_channel::broadcast(msg_t algo, unsigned char *buf, size_t buf_len
                     sizeof(peer->ip)) < 0)
             error(-1, errno, "Could not connect to peer %s", cli_to_str(peer));
 
-        while((chunk_size = msg_enc->generate_chunk(&chunk, &chunk_id)) > 0 &&
-                chunk != NULL){
-            glob_log.log(2, "Sending chunk %u of msg %lu to peer %u\n",
-                    chunk_id, msg_counter, peer->id);
+        // XXX Check that peer id is what it should be (Dan 1/8)
+        // Get chunks to send to peer
+        std::vector< std::pair<unsigned, unsigned char *> > *chunks;
+        chunks = msg_handler->get_chunks(peer->id);
+
+        for (int c = 0; c < (int)chunks->size(); c++) {
+            // Extract the chunk data
+            chunk_id = (*chunks)[c].first;
+            chunk = (*chunks)[c].second;
+
             // Build the message around the chunk
             out_msg.type = algo;
             out_msg.cli_id = my_info->id;
-            out_msg.msg_id = msg_counter;//we don't want a new msgid for each chunk
+            out_msg.msg_id = msg_counter;       // We don't want a new msgid for each chunk
             out_msg.chunk_id = chunk_id;
             out_msg.ttl = 1;
-            out_msg.data_len = chunk_size;
+            out_msg.data_len = PACKET_LEN;      // The data is padded, so this is always true
             memset(&out_msg.data, 0, PACKET_LEN);
-            memcpy(&(out_msg.data), chunk, chunk_size);
+            memcpy(&(out_msg.data), chunk, PACKET_LEN);
 
             dump_buf(3, out_msg.data, out_msg.data_len);
 
@@ -735,18 +737,14 @@ void broadcast_channel::broadcast(msg_t algo, unsigned char *buf, size_t buf_len
         // Close socket
         if (close(sock) != 0)
             error(-1, errno, "Error closing peer socket");
-
-        // Reset the encoder for the next peer
-        msg_enc->next_stream();
     }
-
-    delete msg_enc;
+    delete msg_handler;
 }
 
 /*
  * Forward a list of messages to the rest of the peer group
  */
-void broadcast_channel::forward(std::list< struct message * > msg_list) {
+void Broadcast_Channel::forward(std::list< struct message * > msg_list) {
     int sock;
     struct client_info *peer;
     for (int i = 0; i < (int)group_set.size(); i++) {
@@ -776,7 +774,7 @@ void broadcast_channel::forward(std::list< struct message * > msg_list) {
     }
 }
 
-void *broadcast_channel::do_forward(void *arg){
+void *Broadcast_Channel::do_forward(void *arg){
     struct forward_event *fe = (struct forward_event *)arg;
     struct message *out_msg = NULL;
 
