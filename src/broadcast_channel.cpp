@@ -474,7 +474,7 @@ void Broadcast_Channel::accept_connections() {
                 time_info.first -= 1;
                 if(time_info.first == 0){
                     time_dif = cur_time.tv_sec - time_info.second.tv_sec;
-                    time_dif *= 1000000000;//convert to ns
+                    time_dif *= 1000000000LL;//convert to ns
                     time_dif += (cur_time.tv_nsec - time_info.second.tv_nsec);
                     time_dif /= 1000;
                     glob_log.log(2, "Received final confirmation message for msg %u\n", confirm_msgid);
