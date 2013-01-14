@@ -33,6 +33,11 @@ void cooperative_decoder::add_chunk (unsigned char * d, size_t len, unsigned int
         msg_desc = (struct coop_descriptor *)malloc(sizeof(struct coop_descriptor));
         memcpy(msg_desc, d, sizeof(coop_descriptor));
         chunk_map[0] = NULL;
+
+    } else if (chunk_map.count(id) > 0) {
+        // We've seen this key before.
+        return;
+
     } else {
         glob_log.log(3, "Read chunk %u\n", id);
         unsigned char *data = (unsigned char *) malloc(len);
@@ -40,6 +45,7 @@ void cooperative_decoder::add_chunk (unsigned char * d, size_t len, unsigned int
         chunk_map[id] = data;
         data_len += len;
     }
+
     glob_log.log(3, "Current chunks: ");
     std::map<unsigned int, unsigned char *>::iterator it = chunk_map.begin();
     for (; it != chunk_map.end(); ++it) {
@@ -67,6 +73,7 @@ unsigned char * cooperative_decoder::get_message (){
 
     // Decode the message
     unsigned char *decoded_data = (unsigned char *) malloc(data_len);
+    memset(decoded_data, 0, data_len);
     unsigned char *pos = decoded_data;
     size_t bytes_read = 0;
     // Note that the 0th chunk is the message descriptor, and the last may

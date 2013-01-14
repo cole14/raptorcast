@@ -98,9 +98,9 @@ Encoder *Outgoing_Message::get_encoder(msg_t algo){
             return new Client_Server_Encoder((Encoder_Context *)this);
         case TRAD:
             return new Traditional_Encoder((Encoder_Context *)this);
-            /*
         case COOP:
             return new Cooperative_Encoder((Encoder_Context *)this);
+            /*
         case LT:
             return new Lt_Encoder((Encoder_Context *)this);
             */

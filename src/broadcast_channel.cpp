@@ -529,8 +529,11 @@ void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
     // Get a decoder for this message
     dec_id = (((unsigned long)in_msg->cli_id) << 32) | (unsigned long)in_msg->msg_id;
     if(decoders.find(dec_id) == decoders.end()){
+        glob_log.log(2, "Constructing decoder for message %u\n", in_msg->msg_id);
         msg_dec = get_decoder(in_msg->type);
         decoders[dec_id] = msg_dec;
+    } else {
+        glob_log.log(2, "Retrieving decoder for message %u\n", in_msg->msg_id);
     }
     msg_dec = decoders[dec_id];
     deliver_msg = !msg_dec->is_ready();
@@ -593,8 +596,10 @@ void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
             // Close the socket
             close(confirm_sock);
         }
-        if(msg_dec->is_finished())
+        if(msg_dec->is_finished()) {
+            glob_log.log(2, "Erasing decoder for message %u\n", in_msg->msg_id);
             decoders.erase(dec_id);
+        }
     }
 }
 
