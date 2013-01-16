@@ -16,7 +16,7 @@ SRC_FILES+=	channel_listener.cpp
 SRC_FILES+=	dec/client_server_decoder.cpp enc/client_server_encoder.cpp
 SRC_FILES+=	dec/cooperative_decoder.cpp enc/cooperative_encoder.cpp
 SRC_FILES+=	dec/traditional_decoder.cpp enc/traditional_encoder.cpp
-SRC_FILES+= lt_selector.cpp dec/lt_decoder.cpp #enc/lt_encoder.cpp 
+SRC_FILES+= lt_selector.cpp dec/lt_decoder.cpp enc/lt_encoder.cpp 
 SRC_FILES+=	dec/decoder.cpp enc/encoder.cpp
 SRC_FILES+=	logger.cpp
 

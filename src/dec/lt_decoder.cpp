@@ -36,8 +36,8 @@ void lt_decoder::add_chunk (unsigned char * data, size_t len, unsigned int chunk
         lts = new lt_selector(msg_desc->seed, msg_desc->total_blocks);
 
         glob_log.log(3, "Read lt message descriptor (chunk 0)!\n");
-        glob_log.log(3, "total_chunks %zu, num_peers %zu, chunk_len %zu, seed %d\n",
-                msg_desc->total_chunks, msg_desc->num_peers,
+        glob_log.log(3, "total_blocks %zu, num_peers %zu, chunk_len %zu, seed %d\n",
+                msg_desc->total_blocks, msg_desc->num_peers,
                 msg_desc->chunk_len, msg_desc->seed);
         return;
     }
@@ -61,7 +61,7 @@ void lt_decoder::add_chunk (unsigned char * data, size_t len, unsigned int chunk
     build_block_list(chunk);
     chunks_seen++;
 
-    for (unsigned int i = 0; i < msg_desc->total_chunks; i++) {
+    for (unsigned int i = 0; i < msg_desc->total_blocks; i++) {
         if (decoded_blocks.find(i) != decoded_blocks.end())   // Fuck C++
             reduce(chunk, decoded_blocks[i]);
     }

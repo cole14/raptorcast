@@ -10,32 +10,20 @@
 
 
 
-class lt_encoder : public Encoder {
+class LT_Encoder : public Encoder {
     public :
-        lt_encoder();
-        virtual ~lt_encoder() {}
-        void init(unsigned char *data, size_t data_len, size_t chunk_len, size_t num_peers);
-        int generate_chunk(unsigned char **dest, unsigned int *chunk_id);
-        void next_stream();
+        LT_Encoder(Encoder_Context *ctx);
+        virtual ~LT_Encoder() {}
+        std::vector<unsigned> *get_chunk_list(unsigned peer);
+        size_t get_chunk(unsigned char **dest, unsigned chunk_id);
 
-        void split_blocks(unsigned char *data, size_t data_len);
-
-        struct lt_descriptor *get_desc();
 
     private :
-        size_t data_len;
-        size_t chunk_len;
-        size_t num_peers;
-        size_t total_chunks;
         size_t chunks_per_peer;
-        size_t current_peer_chunks;
-
-        bool descriptor_sent;
-        unsigned int chunk_id;
-
-        std::vector<unsigned char *> blocks;    // Data split into blocks
 
         lt_selector *lts;
+
+        struct lt_descriptor *get_desc();
 };
 
 #endif // __LT_ENCODER_H
