@@ -64,6 +64,9 @@ static const char *cli_to_str(struct client_info *cli) {
 // Constructors/Destructors
 Broadcast_Channel::~Broadcast_Channel(void)
 {
+    // Quit the broadcast group (NOP if not connected)
+    quit();
+
     //Delete the group_set
     // Note: 'my_info' is added to the group_set, so deleting the group_set deletes it as well.
     for(std::vector< struct client_info * >::iterator it = group_set.begin(); it != group_set.end(); it++){
@@ -77,6 +80,7 @@ Broadcast_Channel::Broadcast_Channel(std::string name, std::string port, Channel
     listener = lstnr;
     msg_counter = 0;
     debug_mode = false;
+    connected = false;
 
     // Get the clock id for this process
     if (0 != clock_getcpuclockid(0, &clk))
@@ -403,8 +407,8 @@ void Broadcast_Channel::accept_connections() {
     //Start listening on the chunk receiver socket
     listen(server_sock, 10);
 
-    bool running = true;
-    while (running) {
+    connected = true;
+    while (connected) {
         glob_log.log(3, "Server waiting...\n");
 
         // Wait for a connection
@@ -438,7 +442,7 @@ void Broadcast_Channel::accept_connections() {
                 if (peer_info->id == my_info->id) {
                     // Shutdown message from the CLI thread
                     glob_log.log(3, "Shutting down receive thread\n");
-                    running = false;
+                    connected = false;
                     break;
                 }
 
@@ -499,6 +503,9 @@ void Broadcast_Channel::accept_connections() {
             error(-1, errno, "Error closing peer socket");
 
     }
+
+    // Close down the server
+    close(server_sock);
 }
 
 void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
@@ -621,6 +628,10 @@ void Broadcast_Channel::quit() {
     int sock;
     struct client_info *peer;
     struct message out_msg;
+
+    //Only try to quit if we're connected
+    if(!connected)
+        return;
 
     glob_log.log(3, "Putting in 2 weeks' notice\n");
 

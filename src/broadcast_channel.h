@@ -58,6 +58,8 @@ class Broadcast_Channel {
         pthread_t receiver_thread;
         // The chunk receiver socket
         int server_sock;
+        // True if currently connected to a group, false otherwise
+        bool connected;
         // The application listening on this channel
         Channel_Listener *listener;
         // The monotonically increasing unique message id counter for this sender
