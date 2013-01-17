@@ -22,18 +22,8 @@
 extern int h_errno;
 extern int errno;
 
-void dump_buf(int level, void *b, size_t len){
-    unsigned char *buf = (unsigned char *)b;
-    glob_log.log(level+1, "dumping buf:\n");
-    for(int i = 0; i < (int)len; i++){
-        glob_log.log(level, "%02X ", buf[i]);
-        if((i+1) % 16 == 0)
-            glob_log.log(level, "\n");
-    }
-    glob_log.log(level, "\n");
-}
-
-const char * msg_t_to_str(msg_t type) {
+// Local Utility functions
+static const char * msg_t_to_str(msg_t type) {
     switch (type) {
         case JOIN:
             return "JOIN";
@@ -60,7 +50,7 @@ const char * msg_t_to_str(msg_t type) {
     }
 }
 
-const char *cli_to_str(struct client_info *cli) {
+static const char *cli_to_str(struct client_info *cli) {
     const int max_size = 256;
     static char str[max_size];
     snprintf(str, max_size, "%u:%s at %s:%d",
@@ -71,34 +61,58 @@ const char *cli_to_str(struct client_info *cli) {
     return str;
 }
 
+client_info::client_info(std::string n)
+:ip()
+,id(0)
+{
+    //Sanity check the name length
+    size_t len = n.length()+1;
+    if (len > MAX_NAME_LEN)
+        error(-1, EINVAL, "Chosen name (%s) is too long (max %d)", n.c_str(), MAX_NAME_LEN);
+
+    //Copy name contents
+    strcpy(name, n.c_str());
+    //Zero-out the rest of the name
+    memset(name+len, 0, MAX_NAME_LEN-len);
+}
+
+// Constructors/Destructors
 Broadcast_Channel::~Broadcast_Channel(void)
 {
-    //Delete the group_set
-    for(std::vector< struct client_info * >::iterator it = group_set.begin(); it != group_set.end(); it++){
-        free(*it);
+    // Quit the broadcast group (NOP if not connected)
+    try{
+        quit();
+
+        //Delete the group_set
+        // Note: 'my_info' is added to the group_set, so deleting the group_set deletes it as well.
+        for(std::vector< struct client_info * >::iterator it = group_set.begin(); it != group_set.end(); it++){
+            free(*it);
+        }
+    }catch(...){
+        fprintf(stderr, "Caught unexpected exception within ~Broadcast_Channel()\n");
     }
 }
 
 //Default constructor - initialize the port member
-Broadcast_Channel::Broadcast_Channel(std::string name, std::string port, Channel_Listener *lstnr){
-    //Init members
-    listener = lstnr;
-    msg_counter = 0;
-    debug_mode = false;
-
+Broadcast_Channel::Broadcast_Channel(std::string name, std::string port, Channel_Listener *lstnr)
+:my_info(NULL)
+,group_set()
+,decoders()
+,receiver_thread()
+,server_sock(-1)
+,connected(false)
+,listener(lstnr)
+,msg_counter(0)
+,debug_mode(false)
+,start_times()
+,clk(0)
+{
     // Get the clock id for this process
     if (0 != clock_getcpuclockid(0, &clk))
         error(-1, errno, "Unable to get the system clock for timing");
 
     //Allocate the client_info struct
-    my_info = (struct client_info *)calloc(1, sizeof(struct client_info));
-
-    //Initialize the client info struct
-    if (name.size() > MAX_NAME_LEN)
-        error(-1, EINVAL, "Chosen name (%s) is too long (max %d)",
-                name.c_str(), MAX_NAME_LEN);
-    strcpy(my_info->name, name.c_str());
-    my_info->id = 0;
+    my_info = new struct client_info(name);
 
     //Get the hostname of the local host
     char local_h_name[256];
@@ -141,19 +155,21 @@ Broadcast_Channel::Broadcast_Channel(std::string name, std::string port, Channel
 
 }
 
+//Look up the client_info based on client id
+//  Returns NULL if not found
 client_info *Broadcast_Channel::get_peer_by_id(unsigned int id) {
-    for (unsigned int i = 0; i < group_set.size(); i++) {
-        if (group_set[i]->id == id) {
+    for (size_t i = 0; i < group_set.size(); i++)
+        if (group_set[i]->id == id)
             return group_set[i];
-        }
-    }
     return NULL;
 }
 
+//Flip the value of debug_mode
 bool Broadcast_Channel::toggle_debug_mode(){
     return (debug_mode = !debug_mode);
 }
 
+//Set up and return a new unconnected socket with the proper options
 int Broadcast_Channel::make_socket(){
     int arg = 1;
     int sock;
@@ -217,6 +233,7 @@ ssize_t Broadcast_Channel::send_message(int sock, struct message *msg) {
     return (ssize_t)tot_sent;
 }
 
+/* group_set management functions */
 void Broadcast_Channel::print_peers(int indent) {
     struct client_info *peer;
     for (unsigned int i = 0; i < group_set.size(); i++) {
@@ -233,7 +250,7 @@ void Broadcast_Channel::print_peers(int indent) {
  * about us complete with ID, and then 1 or more PEER messages containing info
  * on the other peers in the network.
  */
-bool Broadcast_Channel::get_peer_list(std::string hostname, int port) {
+void Broadcast_Channel::get_peer_list(std::string hostname, int port) {
     int sock;
     struct addrinfo *strap_h;
     struct sockaddr_in *strap_addr;
@@ -265,6 +282,7 @@ bool Broadcast_Channel::get_peer_list(std::string hostname, int port) {
     if (in_msg.type != PEER)
         error(-1, EIO, "received bad bootstrap response message type");
 
+    //Extract the client id from the strap's response
     struct client_info *peer_info;
     peer_info = (struct client_info *) in_msg.data;
     if (strcmp(peer_info->name, my_info->name) != 0)
@@ -282,8 +300,6 @@ bool Broadcast_Channel::get_peer_list(std::string hostname, int port) {
         error(-1, errno, "Error closing bootstrap socket");
 
     freeaddrinfo(strap_h);
-
-    return true;
 }
 
 /*
@@ -291,11 +307,12 @@ bool Broadcast_Channel::get_peer_list(std::string hostname, int port) {
  * list.  They will respond with a READY, indicating that they have added us to
  * their peer list, and are OK to receive messages from us.
  */
-bool Broadcast_Channel::notify_peers() {
+void Broadcast_Channel::notify_peers() {
     int sock;
     struct message in_msg, out_msg;
     struct client_info *peer;
 
+    // The group_set should at least have ourselves to notify.
     if (group_set.size() <= 0)
         error(-1, EINVAL, "The peer list is empty");
 
@@ -310,8 +327,7 @@ bool Broadcast_Channel::notify_peers() {
         sock = make_socket();
 
         // Open socket
-        if (connect(sock, (struct sockaddr *) &peer->ip,
-                    sizeof(peer->ip)) < 0)
+        if (connect(sock, (struct sockaddr *) &peer->ip, sizeof(peer->ip)) < 0)
             error(-1, errno, "Could not connect to peer %s", cli_to_str(peer));
 
         // Construct the outgoing message
@@ -331,18 +347,21 @@ bool Broadcast_Channel::notify_peers() {
         if (close(sock) != 0)
             error(-1, errno, "Error closing peer socket");
     }
-
-    return true;
 }
 
-bool Broadcast_Channel::send_peer_list(int sock, struct client_info *target) {
+/*
+ * Send PEER messages containing the information about each client in the group_set.
+ * This is part of the bootstrap process and includes/defines the target's
+ * client id.
+ */
+void Broadcast_Channel::send_peer_list(int sock, struct client_info *target) {
     struct message out_msg;
     struct client_info *peer;
 
-    // First, send info about the way we see the target
+    // First, define the target's client id
     target->id = get_unused_id();
 
-    // Construct the outgoing message
+    // Construct the outgoing message out of the target's info
     construct_message(PEER, &out_msg, target, sizeof(struct client_info));
 
     // Send!
@@ -361,22 +380,25 @@ bool Broadcast_Channel::send_peer_list(int sock, struct client_info *target) {
         if (send_message(sock, &out_msg) != sizeof(out_msg))
             error(-1, errno, "Could not send peer notification");
     }
-
-    return true;
 }
 
 void Broadcast_Channel::add_peer(struct message *in_msg) {
+    //Sanity check
     if (in_msg->type != PEER)
         error(-1, EIO, "Tried to add peer from non-peer message");
 
-    struct client_info *peer_info;
-    peer_info = (struct client_info *) malloc(sizeof(client_info));
+    //Allocate the new client_info
+    struct client_info *peer_info = (struct client_info *) malloc(sizeof(client_info));
     memcpy(peer_info, &in_msg->data, sizeof(struct client_info));
+
+    //Add it to the group_set
     group_set.push_back(peer_info);
 
+    //log
     glob_log.log(3, "received peer request! Peer %s\n", cli_to_str(peer_info));
 }
 
+//Return the next available client_id
 unsigned int Broadcast_Channel::get_unused_id() {
     unsigned int max_used = 0;
     for (int i = 0; i < (int) group_set.size(); i++)
@@ -384,17 +406,18 @@ unsigned int Broadcast_Channel::get_unused_id() {
     return max_used + 1;
 }
 
+//Wrapper function for use in spawning the server thread
 void *Broadcast_Channel::start_server(void *args) {
-    Broadcast_Channel *bc = (Broadcast_Channel *) args;
-    bc->accept_connections();
+    ((Broadcast_Channel *)args)->accept_connections();
     return NULL;
 }
 
+//Server function to handle incoming messages
 void Broadcast_Channel::accept_connections() {
     int client_sock;
     struct message in_msg, out_msg;
-    struct sockaddr_in client_addr;
-    socklen_t client_len;
+    struct sockaddr_in client_addr = sockaddr_in();
+    socklen_t client_len = socklen_t();
     struct client_info *peer_info;
     //time vars
     unsigned int confirm_msgid;
@@ -411,9 +434,9 @@ void Broadcast_Channel::accept_connections() {
     //Start listening on the chunk receiver socket
     listen(server_sock, 10);
 
-    bool running = true;
-    while (running) {
-        glob_log.log(3, "Server waiting...\n");
+    connected = true;
+    while (connected) {
+        glob_log.log(4, "Server waiting...\n");
 
         // Wait for a connection
         client_sock = accept(server_sock, (struct sockaddr *)&client_addr, &client_len);
@@ -446,7 +469,7 @@ void Broadcast_Channel::accept_connections() {
                 if (peer_info->id == my_info->id) {
                     // Shutdown message from the CLI thread
                     glob_log.log(3, "Shutting down receive thread\n");
-                    running = false;
+                    connected = false;
                     break;
                 }
 
@@ -456,8 +479,11 @@ void Broadcast_Channel::accept_connections() {
                         break;
                 }
 
+                //Remove and free the client from the group_set
                 if (index < (int) group_set.size()) {
+                    struct client_info *quitter = group_set[index];
                     group_set.erase(group_set.begin() + index);
+                    free(quitter);
                 } else {
                     glob_log.log(3, "received quit notice from an unknown peer: %s",
                             cli_to_str(peer_info));
@@ -507,6 +533,9 @@ void Broadcast_Channel::accept_connections() {
             error(-1, errno, "Error closing peer socket");
 
     }
+
+    // Close down the server
+    close(server_sock);
 }
 
 void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
@@ -540,7 +569,7 @@ void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
 
     // Add the chunk we just got
     decoder->add_chunk(in_msg->data, in_msg->data_len, in_msg->chunk_id);
-    dump_buf(3, in_msg->data, in_msg->data_len);
+    glob_log.dump_buf(3, in_msg->data, in_msg->data_len);
 
     // Keep reading chunks and adding them until the bcast is done
     while (in_msg->data_len != 0) {
@@ -555,7 +584,7 @@ void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
                 in_msg->chunk_id, in_msg->msg_id, in_msg->cli_id);
 
         decoder->add_chunk(in_msg->data, in_msg->data_len, in_msg->chunk_id);
-        dump_buf(3, in_msg->data, in_msg->data_len);
+        glob_log.dump_buf(3, in_msg->data, in_msg->data_len);
     }
 
     // Forward the message on to the other peers
@@ -601,8 +630,14 @@ void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
         if(decoder->is_finished()) {
             glob_log.log(2, "Erasing decoder for message %u\n", in_msg->msg_id);
             decoders.erase(dec_id);
+            delete msg_dec;
         }
         */
+    }
+
+    //Clean up the msg_list
+    for(std::list< struct message * >::iterator it = msg_list.begin(); it != msg_list.end(); it++){
+        free(*it);
     }
 }
 
@@ -613,11 +648,10 @@ bool Broadcast_Channel::join(std::string hostname, int port){
 
     } else {
         // Join an existing broadcast group
-        if (! get_peer_list(hostname, port))
-            error(-1, errno, "Could not get peer list");
+        get_peer_list(hostname, port);
 
-        if (! notify_peers())
-            error(-1, errno, "Could not notify peers");
+        // Notify the group_set that we are ready to go
+        notify_peers();
     }
 
     // Add myself to the peer list
@@ -632,6 +666,11 @@ void Broadcast_Channel::quit() {
     int sock;
     struct client_info *peer;
     struct message out_msg;
+
+    //Only try to quit if we're connected
+    if(!connected)
+        return;
+
     glob_log.log(3, "Putting in 2 weeks' notice\n");
 
     // Notify peers that we're quitting
@@ -724,7 +763,7 @@ void Broadcast_Channel::broadcast(msg_t algo, unsigned char *data, size_t data_l
             memset(&out_msg.data, 0, PACKET_LEN);
             memcpy(&(out_msg.data), chunk, PACKET_LEN);
 
-            dump_buf(3, out_msg.data, out_msg.data_len);
+            glob_log.dump_buf(3, out_msg.data, out_msg.data_len);
 
             // Send the message
             if (send_message(sock, &out_msg) != sizeof(out_msg))

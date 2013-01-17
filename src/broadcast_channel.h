@@ -18,6 +18,7 @@
 #include "message_types.h"
 
 struct client_info {
+    client_info(std::string name);
     struct sockaddr_in ip;
     unsigned int id;
     char name[MAX_NAME_LEN];
@@ -47,6 +48,7 @@ class Broadcast_Channel {
         bool toggle_debug_mode();
 
     private:
+    /* Private Members */
         // The client info for this broadcast_channel
         struct client_info *my_info;
         // The client info for everyone in the broadcast group
@@ -57,6 +59,8 @@ class Broadcast_Channel {
         pthread_t receiver_thread;
         // The chunk receiver socket
         int server_sock;
+        // True if currently connected to a group, false otherwise
+        bool connected;
         // The application listening on this channel
         Channel_Listener *listener;
         // The monotonically increasing unique message id counter for this sender
@@ -67,12 +71,13 @@ class Broadcast_Channel {
         std::map< unsigned int, std::pair< int, struct timespec > > start_times;
         clockid_t clk;
 
+    /* Private Functions */
         // Contact a known host and get a list of all peers
-        bool get_peer_list(std::string hostname, int port);
+        void get_peer_list(std::string hostname, int port);
         // Send a list of all peers to a new member
-        bool send_peer_list(int client_sock, struct client_info *target);
+        void send_peer_list(int client_sock, struct client_info *target);
         // Tell the list of peers that we exist
-        bool notify_peers();
+        void notify_peers();
         // Add a peer to the list
         void add_peer(struct message *);
 
