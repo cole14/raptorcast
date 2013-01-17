@@ -479,8 +479,11 @@ void Broadcast_Channel::accept_connections() {
                         break;
                 }
 
+                //Remove and free the client from the group_set
                 if (index < (int) group_set.size()) {
+                    struct client_info *quitter = group_set[index];
                     group_set.erase(group_set.begin() + index);
+                    free(quitter);
                 } else {
                     glob_log.log(3, "received quit notice from an unknown peer: %s",
                             cli_to_str(peer_info));
