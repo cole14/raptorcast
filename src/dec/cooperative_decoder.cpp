@@ -7,16 +7,16 @@
 
 #include "logger.h"
 
-cooperative_decoder::cooperative_decoder() :
+Cooperative_Decoder::Cooperative_Decoder() :
     msg_desc(NULL),
     data_len(0)
 { }
 
-cooperative_decoder::~cooperative_decoder() {
+Cooperative_Decoder::~Cooperative_Decoder() {
     if (msg_desc) free(msg_desc);
 }
 
-void cooperative_decoder::add_chunk (unsigned char * d, size_t len, unsigned int id){
+void Cooperative_Decoder::add_chunk (unsigned char * d, size_t len, unsigned int id){
     if (len == 0) {
         // End of transmission, ignore
         return;
@@ -53,7 +53,7 @@ void cooperative_decoder::add_chunk (unsigned char * d, size_t len, unsigned int
     glob_log.log(3, "\n");
 }
 
-bool cooperative_decoder::is_ready (){
+bool Cooperative_Decoder::is_ready (){
     if (msg_desc == NULL || msg_desc->total_chunks == 0) {
         return false;
     } else {
@@ -61,11 +61,11 @@ bool cooperative_decoder::is_ready (){
     }
 }
 
-bool cooperative_decoder::is_finished (){
+bool Cooperative_Decoder::is_finished (){
     return is_ready();
 }
 
-unsigned char * cooperative_decoder::get_message (){
+unsigned char * Cooperative_Decoder::get_message (){
     if (!is_ready()) {
         return NULL;
     }
@@ -88,7 +88,7 @@ unsigned char * cooperative_decoder::get_message (){
     return decoded_data;
 }
 
-size_t cooperative_decoder::get_len (){
+size_t Cooperative_Decoder::get_len (){
     if (!is_ready()) {
         return 0;
     } else {

@@ -7,10 +7,10 @@
 #include "decoder.h"
 #include "lt_common.h"
 
-class lt_decoder : public decoder {
+class LT_Decoder : public Decoder {
     public:
-        lt_decoder();
-        ~lt_decoder();
+        LT_Decoder();
+        ~LT_Decoder();
         void add_chunk (unsigned char * data, size_t len, unsigned int chunk_id);
         bool is_ready ();
         bool is_finished ();

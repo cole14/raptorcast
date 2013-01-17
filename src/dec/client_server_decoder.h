@@ -7,10 +7,10 @@
 
 #include "decoder.h"
 
-class client_server_decoder : public decoder {
+class Client_Server_Decoder : public Decoder {
     public:
-        client_server_decoder();
-        virtual ~client_server_decoder();
+        Client_Server_Decoder();
+        virtual ~Client_Server_Decoder();
         void add_chunk (unsigned char * data, size_t len, unsigned int chunk_id);
         bool is_ready ();
         bool is_finished ();

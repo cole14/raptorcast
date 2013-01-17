@@ -3,10 +3,10 @@
 
 #include "client_server_decoder.h"
 
-class traditional_decoder : public client_server_decoder {
+class Traditional_Decoder : public Client_Server_Decoder {
     public:
-        traditional_decoder() { }
-        virtual ~traditional_decoder() { }
+        Traditional_Decoder() { }
+        virtual ~Traditional_Decoder() { }
         bool should_forward () { return true; }
         bool is_finished() { return false; }
 };

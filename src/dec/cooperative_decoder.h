@@ -6,10 +6,10 @@
 
 #include "decoder.h"
 
-class cooperative_decoder : public decoder {
+class Cooperative_Decoder : public Decoder {
     public:
-        cooperative_decoder();
-        ~cooperative_decoder();
+        Cooperative_Decoder();
+        ~Cooperative_Decoder();
         void add_chunk (unsigned char * data, size_t len, unsigned int chunk_id);
         bool is_ready ();
         bool is_finished ();
