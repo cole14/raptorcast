@@ -47,6 +47,7 @@ class Broadcast_Channel {
         bool toggle_debug_mode();
 
     private:
+    /* Private Members */
         // The client info for this broadcast_channel
         struct client_info *my_info;
         // The client info for everyone in the broadcast group
@@ -67,6 +68,7 @@ class Broadcast_Channel {
         std::map< unsigned int, std::pair< int, struct timespec > > start_times;
         clockid_t clk;
 
+    /* Private Functions */
         // Contact a known host and get a list of all peers
         bool get_peer_list(std::string hostname, int port);
         // Send a list of all peers to a new member

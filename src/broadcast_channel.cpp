@@ -22,18 +22,8 @@
 extern int h_errno;
 extern int errno;
 
-void dump_buf(int level, void *b, size_t len){
-    unsigned char *buf = (unsigned char *)b;
-    glob_log.log(level+1, "dumping buf:\n");
-    for(int i = 0; i < (int)len; i++){
-        glob_log.log(level, "%02X ", buf[i]);
-        if((i+1) % 16 == 0)
-            glob_log.log(level, "\n");
-    }
-    glob_log.log(level, "\n");
-}
-
-const char * msg_t_to_str(msg_t type) {
+// Local Utility functions
+static const char * msg_t_to_str(msg_t type) {
     switch (type) {
         case JOIN:
             return "JOIN";
@@ -60,7 +50,7 @@ const char * msg_t_to_str(msg_t type) {
     }
 }
 
-const char *cli_to_str(struct client_info *cli) {
+static const char *cli_to_str(struct client_info *cli) {
     const int max_size = 256;
     static char str[max_size];
     snprintf(str, max_size, "%u:%s at %s:%d",
@@ -71,9 +61,11 @@ const char *cli_to_str(struct client_info *cli) {
     return str;
 }
 
+// Constructors/Destructors
 Broadcast_Channel::~Broadcast_Channel(void)
 {
     //Delete the group_set
+    // Note: 'my_info' is added to the group_set, so deleting the group_set deletes it as well.
     for(std::vector< struct client_info * >::iterator it = group_set.begin(); it != group_set.end(); it++){
         free(*it);
     }
@@ -540,7 +532,7 @@ void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
 
     // Add the chunk we just got
     msg_dec->add_chunk(in_msg->data, in_msg->data_len, in_msg->chunk_id);
-    dump_buf(3, in_msg->data, in_msg->data_len);
+    glob_log.dump_buf(3, in_msg->data, in_msg->data_len);
 
     // Keep reading chunks and adding them until the bcast is done
     while (in_msg->data_len != 0) {
@@ -555,7 +547,7 @@ void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
                 in_msg->chunk_id, in_msg->msg_id, in_msg->cli_id);
 
         msg_dec->add_chunk(in_msg->data, in_msg->data_len, in_msg->chunk_id);
-        dump_buf(3, in_msg->data, in_msg->data_len);
+        glob_log.dump_buf(3, in_msg->data, in_msg->data_len);
     }
 
     // Forward the message on to the other peers
@@ -629,6 +621,7 @@ void Broadcast_Channel::quit() {
     int sock;
     struct client_info *peer;
     struct message out_msg;
+
     glob_log.log(3, "Putting in 2 weeks' notice\n");
 
     // Notify peers that we're quitting
@@ -721,7 +714,7 @@ void Broadcast_Channel::broadcast(msg_t algo, unsigned char *data, size_t data_l
             memset(&out_msg.data, 0, PACKET_LEN);
             memcpy(&(out_msg.data), chunk, PACKET_LEN);
 
-            dump_buf(3, out_msg.data, out_msg.data_len);
+            glob_log.dump_buf(3, out_msg.data, out_msg.data_len);
 
             // Send the message
             if (send_message(sock, &out_msg) != sizeof(out_msg))
