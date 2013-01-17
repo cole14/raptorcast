@@ -70,8 +70,7 @@ char *Client::read_stripped_line(){
 
     //Get rid of the newline terminator
     //Hello, World!\0\0
-    line_buf_filled_len = strlen(line_buf);
-    while(isspace(line_buf[line_buf_filled_len - 1]))
+    while(line_buf_filled_len > 0 && isspace(line_buf[line_buf_filled_len - 1]))
         line_buf[--line_buf_filled_len] = '\0';
 
     return line_buf;
