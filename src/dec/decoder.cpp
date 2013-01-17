@@ -1,4 +1,5 @@
 #include <stddef.h>
+#include <string.h>
 
 #include "decoder.h"
 #include "client_server_decoder.h"
@@ -6,17 +7,142 @@
 #include "traditional_decoder.h"
 #include "lt_decoder.h"
 
-decoder *get_decoder(msg_t algo) {
+Incoming_Message::Incoming_Message(msg_t algo) :
+    descriptor(NULL)
+{
+    decoder = get_decoder(algo);
+}
+
+Incoming_Message::~Incoming_Message() {
+    // Get rid of all the chunks and blocks
+    typedef std::map<unsigned, unsigned char *>::iterator it_type;
+    for(it_type it = blocks.begin(); it != blocks.end(); it++) {
+        free(it->second);
+    }
+    for(it_type it = chunks.begin(); it != chunks.end(); it++) {
+        free(it->second);
+    }
+
+    // Get rid of the decoder
+    free(decoder);
+}
+
+void Incoming_Message::add_chunk(unsigned char *data, size_t len, int chunk_id) {
+    // If the decoder already has the message, we can just throw this out
+    if (decoder->is_ready()) {
+        return;
+    }
+
+    // Deal with the descriptor
+    if (chunk_id == -1) {
+        if (descriptor != NULL) {
+            // Already done, don't worry about it
+            return;
+        }
+        // Copy the descriptor
+        // We'll malloc as much as they gave us, in case there's some
+        // extra, alg-specific stuff hidden beneath
+        descriptor = (Message_Descriptor *) malloc(len);
+        memcpy(descriptor, data, len);
+
+        return;
+    }
+
+    // Add the chunk to our list
+    unsigned char *chunk = (unsigned char *) malloc(len);
+    memcpy(chunk, data, len);
+    chunks[chunk_id] = chunk;
+
+    // XXX (Dan 1/17/13) commented out to compile
+    //decoder->notify(chunk_id);
+}
+
+bool Incoming_Message::is_ready () {
+    return decoder->is_ready();
+}
+
+bool Incoming_Message::should_forward() {
+    return decoder->should_forward();
+}
+
+size_t Incoming_Message::get_len() {
+    if (!decoder->is_ready())
+        return 0;
+    return blocks.size() * descriptor->chunk_len;
+}
+
+unsigned char *Incoming_Message::get_message() {
+    if (!decoder->is_ready()) {
+        return NULL;
+    }
+
+    size_t data_len = get_len();
+    unsigned char *data, *dp;
+    data = (unsigned char *) malloc(data_len);
+    dp = data;
+
+    for (unsigned b = 0; b < blocks.size(); b++) {
+        memcpy(dp, blocks[b], descriptor->chunk_len);
+        dp += descriptor->chunk_len;
+    }
+
+    return data;
+}
+
+std::vector<unsigned> *Incoming_Message::get_block_list() {
+    typedef std::map<unsigned, unsigned char *>::iterator map_it;
+    std::vector<unsigned> *list = new std::vector<unsigned>();
+    for (map_it it = blocks.begin(); it != blocks.end(); it++) {
+        list->push_back(it->first);
+    }
+    return list;
+}
+
+unsigned char *Incoming_Message::get_block(unsigned index) {
+    if (blocks.find(index) == blocks.end())
+        return NULL;
+    return blocks[index];
+}
+
+std::vector<unsigned> *Incoming_Message::get_chunk_list() {
+    typedef std::map<unsigned, unsigned char *>::iterator map_it;
+    std::vector<unsigned> *list = new std::vector<unsigned>();
+    for (map_it it = chunks.begin(); it != chunks.end(); it++) {
+        list->push_back(it->first);
+    }
+    return list;
+}
+
+unsigned char *Incoming_Message::get_chunk(unsigned index) {
+    if (chunks.find(index) == chunks.end())
+        return NULL;
+    return blocks[index];
+}
+
+void Incoming_Message::set_block(unsigned char *data, unsigned index) {
+    // data has been passed back down to us, so we own it.
+    unsigned char *block = get_block(index);
+    if (block != NULL) {
+        free(block);
+    }
+    blocks[index] = data;
+}
+
+Message_Descriptor *Incoming_Message::get_descriptor() {
+    return descriptor;
+}
+
+Decoder *Incoming_Message::get_decoder(msg_t algo) {
     switch (algo) {
         /*
         case CLIENT_SERVER:
-            return new client_server_decoder();
+            return new Client_Server_Decoder();
         case COOP:
-            return new cooperative_decoder();
+            return new Cooperative_Decoder();
         case TRAD:
-            return new traditional_decoder();
+            return new Traditional_Decoder();
         case LT:
-            return new lt_decoder();
+            return new LT_Decoder();
             */
         case RAPTOR:
             return NULL;  // Not yet implemented

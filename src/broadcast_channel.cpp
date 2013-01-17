@@ -512,7 +512,7 @@ void Broadcast_Channel::accept_connections() {
 void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
     std::list< struct message * > msg_list;
     struct message *msg = NULL;
-    decoder *msg_dec = NULL;
+    Incoming_Message *decoder = NULL;
     bool deliver_msg = false;
     unsigned long dec_id = 0;
 
@@ -530,16 +530,16 @@ void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
     dec_id = (((unsigned long)in_msg->cli_id) << 32) | (unsigned long)in_msg->msg_id;
     if(decoders.find(dec_id) == decoders.end()){
         glob_log.log(2, "Constructing decoder for message %u\n", in_msg->msg_id);
-        msg_dec = get_decoder(in_msg->type);
-        decoders[dec_id] = msg_dec;
+        decoder = new Incoming_Message(in_msg->type);
+        decoders[dec_id] = decoder;
     } else {
         glob_log.log(2, "Retrieving decoder for message %u\n", in_msg->msg_id);
     }
-    msg_dec = decoders[dec_id];
-    deliver_msg = !msg_dec->is_ready();
+    decoder = decoders[dec_id];
+    deliver_msg = !decoder->is_ready();
 
     // Add the chunk we just got
-    msg_dec->add_chunk(in_msg->data, in_msg->data_len, in_msg->chunk_id);
+    decoder->add_chunk(in_msg->data, in_msg->data_len, in_msg->chunk_id);
     dump_buf(3, in_msg->data, in_msg->data_len);
 
     // Keep reading chunks and adding them until the bcast is done
@@ -554,20 +554,20 @@ void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
         glob_log.log(2, "Recieved chunk %u of msg %u from peer %u\n",
                 in_msg->chunk_id, in_msg->msg_id, in_msg->cli_id);
 
-        msg_dec->add_chunk(in_msg->data, in_msg->data_len, in_msg->chunk_id);
+        decoder->add_chunk(in_msg->data, in_msg->data_len, in_msg->chunk_id);
         dump_buf(3, in_msg->data, in_msg->data_len);
     }
 
     // Forward the message on to the other peers
-    if (msg_dec->should_forward() && in_msg->ttl > 0) {
+    if (decoder->should_forward() && in_msg->ttl > 0) {
         forward(msg_list);
     }
 
     // Print the message and clean up
-    if(msg_dec->is_ready()){
+    if(decoder->is_ready()){
         if(deliver_msg){
             // Deliver the message to the application
-            listener->receive(msg_dec->get_message(), msg_dec->get_len());
+            listener->receive(decoder->get_message(), decoder->get_len());
 
             // Construct the confirm message
             struct message finish_msg;
@@ -596,10 +596,13 @@ void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
             // Close the socket
             close(confirm_sock);
         }
-        if(msg_dec->is_finished()) {
+        /*
+         * XXX (Dan 1/17/12) Figure out how to do this correctly
+        if(decoder->is_finished()) {
             glob_log.log(2, "Erasing decoder for message %u\n", in_msg->msg_id);
             decoders.erase(dec_id);
         }
+        */
     }
 }
 
