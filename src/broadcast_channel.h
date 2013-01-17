@@ -18,6 +18,7 @@
 #include "message_types.h"
 
 struct client_info {
+    client_info(std::string name);
     struct sockaddr_in ip;
     unsigned int id;
     char name[MAX_NAME_LEN];
@@ -72,11 +73,11 @@ class Broadcast_Channel {
 
     /* Private Functions */
         // Contact a known host and get a list of all peers
-        bool get_peer_list(std::string hostname, int port);
+        void get_peer_list(std::string hostname, int port);
         // Send a list of all peers to a new member
-        bool send_peer_list(int client_sock, struct client_info *target);
+        void send_peer_list(int client_sock, struct client_info *target);
         // Tell the list of peers that we exist
-        bool notify_peers();
+        void notify_peers();
         // Add a peer to the list
         void add_peer(struct message *);
 
