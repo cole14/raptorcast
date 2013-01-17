@@ -628,7 +628,13 @@ void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
         if(msg_dec->is_finished()) {
             glob_log.log(2, "Erasing decoder for message %u\n", in_msg->msg_id);
             decoders.erase(dec_id);
+            delete msg_dec;
         }
+    }
+
+    //Clean up the msg_list
+    for(std::list< struct message * >::iterator it = msg_list.begin(); it != msg_list.end(); it++){
+        free(*it);
     }
 }
 
