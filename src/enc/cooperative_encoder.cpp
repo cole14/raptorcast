@@ -22,13 +22,9 @@ std::vector<unsigned> *Cooperative_Encoder::get_chunk_list(unsigned peer) {
         return chunk_list;
     }
 
-    // Always send the descriptor first
-    chunk_list->push_back(0);
-
-    // Figure out what other chunks we need
+    // Figure out what chunks we need
     for (unsigned i = chunks_per_peer * peer; i < chunks_per_peer * (peer+1); i++) {
-        // The descriptor is chunk 0, so increment.
-        unsigned chunk_id = (i % context->get_num_blocks()) + 1;
+        unsigned chunk_id = (i % context->get_num_blocks());
         chunk_list->push_back(chunk_id);
     }
 
@@ -36,26 +32,14 @@ std::vector<unsigned> *Cooperative_Encoder::get_chunk_list(unsigned peer) {
 }
 
 size_t Cooperative_Encoder::get_chunk (unsigned char **dest, unsigned chunk_id) {
-    if (chunk_id == 0) {
-        struct coop_descriptor *desc;
-        desc = (struct coop_descriptor *) malloc(sizeof(struct coop_descriptor));
-        desc->total_chunks = context->get_num_blocks() + 1;  // Descriptor
-        desc->num_peers = context->get_num_peers();
-        desc->chunk_len = context->get_block_len();
-
-        *dest = (unsigned char *)desc;
-        return sizeof(struct coop_descriptor);
-
-    } else {
-        unsigned char *block = context->get_block(chunk_id - 1);
-        if (block == NULL) {
-            *dest = NULL;
-            return 0;
-        }
-
-        unsigned char * chunk = (unsigned char *) malloc(context->get_block_len());
-        memcpy(chunk, block, context->get_block_len());
-        *dest = chunk;
-        return context->get_block_len();
+    unsigned char *block = context->get_block(chunk_id);
+    if (block == NULL) {
+        *dest = NULL;
+        return 0;
     }
+
+    unsigned char * chunk = (unsigned char *) malloc(context->get_block_len());
+    memcpy(chunk, block, context->get_block_len());
+    *dest = chunk;
+    return context->get_block_len();
 }

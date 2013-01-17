@@ -11,11 +11,11 @@
 #include <vector>
 #include <random>
 
-struct lt_descriptor {
+#include "enc/encoder.h"
+
+struct LT_Descriptor {
+    Message_Descriptor desc;
     size_t total_blocks;
-    size_t max_degree;
-    size_t num_peers;
-    size_t chunk_len;
     unsigned int seed;
 };
 

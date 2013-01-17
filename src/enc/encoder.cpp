@@ -44,11 +44,19 @@ Outgoing_Message::Outgoing_Message(msg_t algo, unsigned char *d, size_t d_len,
     encoder = get_encoder(algo);
 }
 
-vector<pair<unsigned, unsigned char *> > *Outgoing_Message::get_chunks(unsigned peer) {
-    vector<unsigned> *chunk_list = encoder->get_chunk_list(peer);
-    vector<pair<unsigned, unsigned char *>> *chunks;
-    chunks = new vector<pair<unsigned, unsigned char *>>();
+vector<pair<int, unsigned char *> > *Outgoing_Message::get_chunks(unsigned peer) {
+    // We'll be putting together a list of (id, chunk) pairs
+    vector<pair<int, unsigned char *>> *chunks;
+    chunks = new vector<pair<int, unsigned char *>>();
 
+    // Add the message descriptor first
+    unsigned char *desc = (unsigned char *)encoder->get_descriptor();
+    chunks->push_back(make_pair(-1, desc));
+
+    // Ask the encoder which chunks to send to this peer
+    vector<unsigned> *chunk_list = encoder->get_chunk_list(peer);
+
+    // Get those chunks and add them
     for (unsigned i = 0; i < chunk_list->size(); i++) {
         unsigned char *chunk;
         encoder->get_chunk(&chunk, (*chunk_list)[i]);
@@ -107,3 +115,12 @@ Encoder *Outgoing_Message::get_encoder(msg_t algo){
     }
 }
 
+// Returns a generic message descriptor
+Message_Descriptor *Encoder::get_descriptor() {
+    Message_Descriptor *desc;
+    desc = (Message_Descriptor *)malloc(sizeof(Message_Descriptor));
+    desc->total_chunks = context->get_num_blocks();
+    desc->chunk_len = context->get_block_len();
+    desc->num_peers = context->get_num_peers();
+    return desc;
+}

@@ -8,6 +8,7 @@
 
 decoder *get_decoder(msg_t algo) {
     switch (algo) {
+        /*
         case CLIENT_SERVER:
             return new client_server_decoder();
         case COOP:
@@ -16,6 +17,7 @@ decoder *get_decoder(msg_t algo) {
             return new traditional_decoder();
         case LT:
             return new lt_decoder();
+            */
         case RAPTOR:
             return NULL;  // Not yet implemented
         default:

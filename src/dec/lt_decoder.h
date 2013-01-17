@@ -41,7 +41,7 @@ class lt_decoder : public decoder {
         std::map< unsigned int, Block * > decoded_blocks;
         std::vector< Chunk * > chunk_list;
 
-        lt_descriptor *msg_desc;
+        LT_Descriptor *msg_desc;
         lt_selector *lts;
 
         int chunks_seen;

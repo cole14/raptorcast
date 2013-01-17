@@ -16,14 +16,12 @@ class LT_Encoder : public Encoder {
         virtual ~LT_Encoder() {}
         std::vector<unsigned> *get_chunk_list(unsigned peer);
         size_t get_chunk(unsigned char **dest, unsigned chunk_id);
-
+        Message_Descriptor *get_descriptor();
 
     private :
         size_t chunks_per_peer;
 
         lt_selector *lts;
-
-        struct lt_descriptor *get_desc();
 };
 
 #endif // __LT_ENCODER_H

@@ -25,7 +25,7 @@ class Outgoing_Message : public Encoder_Context {
 
         // B_Chan interface
         Outgoing_Message(msg_t algo, unsigned char *data, size_t d_len, size_t n_peers, size_t c_len);
-        std::vector< std::pair<unsigned, unsigned char *> > *get_chunks(unsigned peer);
+        std::vector< std::pair<int, unsigned char *> > *get_chunks(unsigned peer);
 
         // Encoder iface
         unsigned char *get_block(unsigned index);
@@ -50,6 +50,11 @@ class Outgoing_Message : public Encoder_Context {
         Encoder *get_encoder(msg_t algo);
 };
 
+struct Message_Descriptor {
+    size_t total_chunks;
+    size_t chunk_len;
+    size_t num_peers;
+};
 
 class Encoder {
     public:
@@ -57,6 +62,7 @@ class Encoder {
         virtual ~Encoder() { }
         virtual std::vector<unsigned> *get_chunk_list(unsigned peer) = 0;
         virtual size_t get_chunk(unsigned char **dest, unsigned chunk_id) = 0;
+        virtual Message_Descriptor *get_descriptor();
 
     protected:
         Encoder_Context *context;

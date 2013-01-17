@@ -703,7 +703,7 @@ void Broadcast_Channel::broadcast(msg_t algo, unsigned char *data, size_t data_l
             error(-1, errno, "Could not connect to peer %s", cli_to_str(peer));
 
         // Get chunks to send to peer
-        std::vector< std::pair<unsigned, unsigned char *> > *chunks;
+        std::vector< std::pair<int, unsigned char *> > *chunks;
         chunks = msg_handler->get_chunks(peer_count);
 
         for (int c = 0; c < (int)chunks->size(); c++) {

@@ -3,12 +3,6 @@
 
 #include "encoder.h"
 
-struct coop_descriptor {
-    size_t total_chunks;
-    size_t num_peers;
-    size_t chunk_len;
-};
-
 class Cooperative_Encoder : public Encoder {
     public:
         Cooperative_Encoder(Encoder_Context *ctx);
