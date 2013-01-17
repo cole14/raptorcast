@@ -416,8 +416,8 @@ void *Broadcast_Channel::start_server(void *args) {
 void Broadcast_Channel::accept_connections() {
     int client_sock;
     struct message in_msg, out_msg;
-    struct sockaddr_in client_addr;
-    socklen_t client_len;
+    struct sockaddr_in client_addr = sockaddr_in();
+    socklen_t client_len = socklen_t();
     struct client_info *peer_info;
     //time vars
     unsigned int confirm_msgid;
