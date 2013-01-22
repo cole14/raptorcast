@@ -156,11 +156,11 @@ Decoder *Incoming_Message::get_decoder(msg_t algo) {
     switch (algo) {
         case CLIENT_SERVER:
             return new Client_Server_Decoder((Decoder_Context *)this);
+        case TRAD:
+            return new Traditional_Decoder((Decoder_Context *)this);
         /*
         case COOP:
             return new Cooperative_Decoder((Decoder_Context *)this);
-        case TRAD:
-            return new Traditional_Decoder((Decoder_Context *)this);
         case LT:
             return new LT_Decoder((Decoder_Context *)this);
             */
