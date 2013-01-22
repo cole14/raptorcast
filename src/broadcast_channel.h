@@ -114,7 +114,6 @@ struct forward_event {
     std::list< struct message * > msg_list;
     unsigned int peer_id;
     Broadcast_Channel *this_ptr;
-    bool should_delete;
 };
 
 #endif /* __BROADCAST_CHANNEL_H */
