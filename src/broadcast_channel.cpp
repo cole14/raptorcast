@@ -543,7 +543,7 @@ void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
     struct message *msg = NULL;
     Incoming_Message *decoder = NULL;
     bool deliver_msg = false;
-    unsigned long dec_id = 0;
+    uint64_t dec_id = 0;
 
     if (in_msg->cli_id == my_info->id)
         return;  // It's just a bump of one of our own messages
@@ -556,7 +556,7 @@ void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
     glob_log.log(3, "received %s message\n", msg_t_to_str(in_msg->type));
 
     // Get a decoder for this message
-    dec_id = (((unsigned long)in_msg->cli_id) << 32) | (unsigned long)in_msg->msg_id;
+    dec_id = (((uint64_t)in_msg->cli_id) << 32) | (uint64_t)in_msg->msg_id;
     if(decoders.find(dec_id) == decoders.end()){
         glob_log.log(2, "Constructing decoder for message %u\n", in_msg->msg_id);
         decoder = new Incoming_Message(in_msg->type);

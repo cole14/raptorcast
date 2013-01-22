@@ -54,7 +54,7 @@ class Broadcast_Channel {
         // The client info for everyone in the broadcast group
         std::vector< struct client_info * > group_set;
         // Association between message_ids and their active decoders
-        std::map< unsigned long, Incoming_Message * > decoders;
+        std::map< uint64_t, Incoming_Message * > decoders;
         // The chunk receiver thread
         pthread_t receiver_thread;
         // The chunk receiver socket
