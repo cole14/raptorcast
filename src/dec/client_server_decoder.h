@@ -9,17 +9,11 @@
 
 class Client_Server_Decoder : public Decoder {
     public:
-        Client_Server_Decoder();
-        virtual ~Client_Server_Decoder();
-        void add_chunk (unsigned char * data, size_t len, unsigned int chunk_id);
+        Client_Server_Decoder(Decoder_Context *ctx) : Decoder(ctx) {}
+        ~Client_Server_Decoder() {}
+        void notify (unsigned chunk_id);
         bool is_ready ();
-        bool is_finished ();
-        unsigned char * get_message ();
-        size_t get_len ();
         bool should_forward () { return false; }
-    private:
-        std::list< std::pair< unsigned char *, size_t > > chunks;
-        bool ready;
 };
 
 #endif /* __CLIENT_SERVER_DECODER_H */

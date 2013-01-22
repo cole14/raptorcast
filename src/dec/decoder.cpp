@@ -4,8 +4,10 @@
 #include "decoder.h"
 #include "client_server_decoder.h"
 #include "cooperative_decoder.h"
-#include "traditional_decoder.h"
 #include "lt_decoder.h"
+#include "traditional_decoder.h"
+
+#include "logger.h"
 
 Incoming_Message::Incoming_Message(msg_t algo) :
     descriptor(NULL)
@@ -45,6 +47,11 @@ void Incoming_Message::add_chunk(unsigned char *data, size_t len, int chunk_id) 
         descriptor = (Message_Descriptor *) malloc(len);
         memcpy(descriptor, data, len);
 
+        glob_log.log(3, "Recieved descriptor (id -1): total_chunks %zu, chunk_len %zu, num_peers %zu.\n",
+                descriptor->total_chunks,
+                descriptor->chunk_len,
+                descriptor->num_peers);
+
         return;
     }
 
@@ -53,8 +60,21 @@ void Incoming_Message::add_chunk(unsigned char *data, size_t len, int chunk_id) 
     memcpy(chunk, data, len);
     chunks[chunk_id] = chunk;
 
-    // XXX (Dan 1/17/13) commented out to compile
-    //decoder->notify(chunk_id);
+    decoder->notify(chunk_id);
+
+    glob_log.log(3, "Added chunk %u\n", chunk_id);
+    glob_log.log(3, "Current chunks:");
+    std::vector<unsigned> *chunk_list = get_chunk_list();
+    for (std::vector<unsigned>::iterator it = chunk_list->begin(); it != chunk_list->end(); it++) {
+        glob_log.log(3, " %u", *it);
+    }
+    glob_log.log(3, "\n");
+    glob_log.log(3, "Current blocks:");
+    std::vector<unsigned> *block_list = get_block_list();
+    for (std::vector<unsigned>::iterator it = block_list->begin(); it != block_list->end(); it++) {
+        glob_log.log(3, " %u", *it);
+    }
+    glob_log.log(3, "\n");
 }
 
 bool Incoming_Message::is_ready () {
@@ -134,15 +154,15 @@ Message_Descriptor *Incoming_Message::get_descriptor() {
 
 Decoder *Incoming_Message::get_decoder(msg_t algo) {
     switch (algo) {
-        /*
         case CLIENT_SERVER:
-            return new Client_Server_Decoder();
+            return new Client_Server_Decoder((Decoder_Context *)this);
+        /*
         case COOP:
-            return new Cooperative_Decoder();
+            return new Cooperative_Decoder((Decoder_Context *)this);
         case TRAD:
-            return new Traditional_Decoder();
+            return new Traditional_Decoder((Decoder_Context *)this);
         case LT:
-            return new LT_Decoder();
+            return new LT_Decoder((Decoder_Context *)this);
             */
         case RAPTOR:
             return NULL;  // Not yet implemented

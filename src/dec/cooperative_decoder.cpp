@@ -7,7 +7,8 @@
 
 #include "logger.h"
 
-Cooperative_Decoder::Cooperative_Decoder() :
+Cooperative_Decoder::Cooperative_Decoder(Decoder_Context *ctx) :
+    Decoder(ctx),
     msg_desc(NULL),
     data_len(0)
 { }

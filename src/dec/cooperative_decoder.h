@@ -8,7 +8,7 @@
 
 class Cooperative_Decoder : public Decoder {
     public:
-        Cooperative_Decoder();
+        Cooperative_Decoder(Decoder_Context *ctx);
         ~Cooperative_Decoder();
         void add_chunk (unsigned char * data, size_t len, unsigned int chunk_id);
         bool is_ready ();

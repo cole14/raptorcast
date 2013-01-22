@@ -5,7 +5,7 @@
 
 class Traditional_Decoder : public Client_Server_Decoder {
     public:
-        Traditional_Decoder() { }
+        Traditional_Decoder(Decoder_Context *ctx): Client_Server_Decoder(ctx) { }
         virtual ~Traditional_Decoder() { }
         bool should_forward () { return true; }
         bool is_finished() { return false; }
