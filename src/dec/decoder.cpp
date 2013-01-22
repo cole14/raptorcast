@@ -136,7 +136,7 @@ std::vector<unsigned> *Incoming_Message::get_chunk_list() {
 unsigned char *Incoming_Message::get_chunk(unsigned index) {
     if (chunks.find(index) == chunks.end())
         return NULL;
-    return blocks[index];
+    return chunks[index];
 }
 
 void Incoming_Message::set_block(unsigned char *data, unsigned index) {
