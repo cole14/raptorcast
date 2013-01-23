@@ -10,7 +10,6 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <time.h>
 #include <unistd.h>
 #include <utility>
 
@@ -105,12 +104,7 @@ Broadcast_Channel::Broadcast_Channel(std::string name, std::string port, Channel
 ,msg_counter(0)
 ,debug_mode(false)
 ,start_times()
-,clk(0)
 {
-    // Get the clock id for this process
-    if (0 != clock_getcpuclockid(0, &clk))
-        error(-1, errno, "Unable to get the system clock for timing");
-
     //Allocate the client_info struct
     my_info = new struct client_info(name);
 
@@ -422,9 +416,8 @@ void Broadcast_Channel::accept_connections() {
     //time vars
     unsigned int confirm_msgid;
     msg_t confirm_type;
-    struct timespec cur_time;
-    int64_t time_dif;
-    std::pair< int, struct timespec > time_info;
+    std::chrono::duration< double, std::ratio< 1, 1000000 > > time_dif;//period=microseconds
+    std::pair< int, std::chrono::system_clock::time_point > time_info;
     //broadcast completion time logger
     std::string t_log_f_name("_time_msg_size.txt");
     t_log_f_name = my_info->name + t_log_f_name;
@@ -494,21 +487,15 @@ void Broadcast_Channel::accept_connections() {
                 memcpy(&confirm_msgid, in_msg.data, sizeof(confirm_msgid));
                 memcpy(&confirm_type, in_msg.data + sizeof(confirm_msgid), sizeof(confirm_type));
 
-                if (-1 == clock_gettime(clk, &cur_time))
-                    error(-1, errno, "Unable to get current time");
                 time_info = start_times[confirm_msgid];
                 time_info.first -= 1;
                 if(time_info.first == 0){
-                    time_dif = cur_time.tv_sec - time_info.second.tv_sec;
-                    time_dif *= 1000000000LL;//convert to ns
-                    time_dif += (cur_time.tv_nsec - time_info.second.tv_nsec);
-                    time_dif /= 1000;
+                    //time_dif = std::chrono::duration_cast< std::chrono::duration< double, std::ratio< 1, 1000000 > > >(std::chrono::system_clock::now() - time_info.second);
+                    time_dif = std::chrono::system_clock::now() - time_info.second;
                     glob_log.log(2, "Received final confirmation message for msg %u\n", confirm_msgid);
-                    glob_log.log(2, "Took %lld microseconds!\n",
-                        (long long)time_dif);
+                    glob_log.log(2, "Took %.lf microseconds!\n", time_dif.count());
 
-                    t_log.log(1, "%s %lld %zu\n", msg_t_to_str(confirm_type),
-                        (long long)time_dif, group_set.size());
+                    t_log.log(1, "%s %.lf %zu\n", msg_t_to_str(confirm_type), time_dif.count(), group_set.size());
                 }
                 start_times[confirm_msgid] = time_info;
                 break;
@@ -714,10 +701,7 @@ void Broadcast_Channel::broadcast(msg_t algo, unsigned char *data, size_t data_l
     msg_counter++;
 
     // Get the starting time of this broadcast
-    struct timespec start_time;
-    if(-1 == clock_gettime(clk, &start_time))
-        error(-1, errno, "Unable to get current time");
-    start_times[msg_counter] = std::make_pair((int)group_set.size()-1, start_time);
+    start_times[msg_counter] = std::make_pair((int)group_set.size()-1, std::chrono::system_clock::now());
 
     // Ensures that all peer requests are contiguous ints starting at 0 and ending at
     //   group_set.size()-2 (because we don't broadcast to ourselves.

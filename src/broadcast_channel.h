@@ -3,13 +3,13 @@
 
 #include <netinet/ip.h>
 #include <stddef.h>
-#include <time.h>
 
 #include <list>
 #include <map>
 #include <utility>
 #include <string>
 #include <vector>
+#include <chrono>
 
 #include "channel_listener.h"
 #include "dec/decoder.h"
@@ -68,8 +68,7 @@ class Broadcast_Channel {
         // Flag to specify whether to artifically crash at specified points
         bool debug_mode;
         // Timers for message broadcast completion timing.
-        std::map< unsigned int, std::pair< int, struct timespec > > start_times;
-        clockid_t clk;
+        std::map< unsigned int, std::pair< int, std::chrono::system_clock::time_point > > start_times;
 
     /* Private Functions */
         // Contact a known host and get a list of all peers
