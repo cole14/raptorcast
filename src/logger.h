@@ -4,11 +4,15 @@
 #include <stdio.h>
 #include <stddef.h>
 
+#include <mutex>
+
 class logger {
     public:
         // Constructors/Destructors
         logger(int level, FILE *fp);
         logger(int level, const char *f_name);
+        //Read my comment in logger.cpp for usage info!
+        logger(const logger& l);
         ~logger();
 
         // Logging methods
@@ -25,6 +29,8 @@ class logger {
         int level;
         // File descriptor of where this logger logs to.
         FILE *fp;
+        // Mutex for thread safe logging
+        std::mutex l_mut;
 };
 
 //The global logger for this project
