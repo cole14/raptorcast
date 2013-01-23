@@ -490,7 +490,6 @@ void Broadcast_Channel::accept_connections() {
                 time_info = start_times[confirm_msgid];
                 time_info.first -= 1;
                 if(time_info.first == 0){
-                    //time_dif = std::chrono::duration_cast< std::chrono::duration< double, std::ratio< 1, 1000000 > > >(std::chrono::system_clock::now() - time_info.second);
                     time_dif = std::chrono::system_clock::now() - time_info.second;
                     glob_log.log(2, "Received final confirmation message for msg %u\n", confirm_msgid);
                     glob_log.log(2, "Took %.lf microseconds!\n", time_dif.count());
