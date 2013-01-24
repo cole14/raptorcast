@@ -6,20 +6,11 @@
 
 #include "decoder.h"
 
-class Cooperative_Decoder : public Decoder {
+class Cooperative_Decoder : public Client_Server_Decoder {
     public:
-        Cooperative_Decoder(Decoder_Context *ctx);
-        ~Cooperative_Decoder();
-        void add_chunk (unsigned char * data, size_t len, unsigned int chunk_id);
-        bool is_ready ();
-        bool is_finished ();
-        unsigned char * get_message ();
-        size_t get_len ();
+        Cooperative_Decoder(Decoder_Context *ctx): Client_Server_Decoder(ctx) {}
+        virtual ~Cooperative_Decoder() {}
         bool should_forward () { return true; }
-    private:
-        std::map<unsigned int, unsigned char *> chunk_map;
-        struct coop_descriptor *msg_desc;
-        size_t data_len;
 };
 
 #endif /* __COOPERATIVE_DECODER_H */
