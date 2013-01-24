@@ -3,6 +3,8 @@
 #include <stdarg.h>
 #include "logger.h"
 
+#include "error_handling.h"
+
 //Global logger instance
 logger glob_log = logger(1, stdout);
 
@@ -20,7 +22,7 @@ logger::logger(int l, const char *f_name)
 ,l_mut()
 {
     if(NULL == (fp = fopen(f_name, "a+")))
-        error(-1, errno, "Unable to open file '%s'", f_name);
+        throw_errno(fatal_exception, errno, "Unable to open file '" << f_name << "'");
 }
 
 /* 
@@ -45,7 +47,7 @@ logger::logger(const logger& l)
 logger::~logger(){
     if (fp != stdin && fp != stdout && fp != stderr)
         if (0 != fclose(fp))
-            error(-1, errno, "Unable to close logger!");
+            throw_errno(fatal_exception, errno, "Unable to close logger!");
 }
 
 /* Basic log method */

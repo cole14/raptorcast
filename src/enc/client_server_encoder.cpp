@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stddef.h>
-#include <error.h>
 
 #include "client_server_encoder.h"
 

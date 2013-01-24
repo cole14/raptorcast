@@ -3,7 +3,6 @@
  * http://www.codeproject.com/Articles/425456/Your-Digital-Fountain
  */
 
-#include <error.h>
 #include <math.h>
 #include <stddef.h>
 #include <stdio.h>

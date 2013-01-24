@@ -17,6 +17,9 @@
 
 #include "logger.h"
 
+#include <stdexcept>
+#include "error_handling.h"
+
 //gethostbyname error num
 extern int h_errno;
 extern int errno;
@@ -66,8 +69,9 @@ client_info::client_info(std::string n)
 {
     //Sanity check the name length
     size_t len = n.length()+1;
-    if (len > MAX_NAME_LEN)
-        error(-1, EINVAL, "Chosen name (%s) is too long (max %d)", n.c_str(), MAX_NAME_LEN);
+    if (len > MAX_NAME_LEN){
+        throw_except(std::length_error, "Chosen name (" << n << " is too long (max " << MAX_NAME_LEN << ")");
+    }
 
     //Copy name contents
     strcpy(name, n.c_str());
@@ -111,13 +115,13 @@ Broadcast_Channel::Broadcast_Channel(std::string name, std::string port, Channel
     //Get the hostname of the local host
     char local_h_name[256];
     if(0 != gethostname(local_h_name, 256)){
-        error(-1, errno, "Unable to gethostname");
+        throw_errno(fatal_exception, errno, "Unable to gethostname");
     }
 
     //Set the client info ip
     struct addrinfo *local_h;
     if(0 != getaddrinfo(local_h_name, port.c_str(), NULL, &local_h)){
-        error(-1, h_errno, "Unable to get localhost host information");
+        throw_errno(std::invalid_argument, h_errno, "Unable to get localhost host information");
     }
     my_info->ip = *((sockaddr_in *)local_h->ai_addr);
 
@@ -132,8 +136,9 @@ Broadcast_Channel::Broadcast_Channel(std::string name, std::string port, Channel
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
     servaddr.sin_port = my_info->ip.sin_port;
-    if (bind(server_sock, (struct sockaddr *) &servaddr, sizeof(my_info->ip)) < 0)
-        error(-1, errno, "Could not bind to supplied local port %d", ntohs(my_info->ip.sin_port));
+    if (bind(server_sock, (struct sockaddr *) &servaddr, sizeof(my_info->ip)) < 0){
+        throw_errno(std::invalid_argument, errno, "Could not bind to supplied local port " << ntohs(my_info->ip.sin_port));
+    }
 
     //delete the local_h linked list
     freeaddrinfo(local_h);
@@ -170,12 +175,12 @@ int Broadcast_Channel::make_socket(){
 
     //Make the socket
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-        error(-1, errno, "Could not create socket");
+        throw_errno(fatal_exception, errno, "Could not create socket");
     //Set the options
     if (0 != setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &arg, sizeof(arg)))
-        error(-1, errno, "Could not set up socket options");
+        throw_errno(fatal_exception, errno, "Could not set up socket options");
     if (0 != setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &arg, sizeof(arg)))
-        error(-1, errno, "Could not set up socket options");
+        throw_errno(fatal_exception, errno, "Could not set up socket options");
 
     return sock;
 }
@@ -255,32 +260,32 @@ void Broadcast_Channel::get_peer_list(std::string hostname, int port) {
 
     // Put together the strap address
     if (0 != getaddrinfo(hostname.c_str(), NULL, NULL, &strap_h))
-        error(-1, h_errno, "Unable to resolve bootstrap host");
+        throw_errno(fatal_exception, h_errno, "Unable to resolve bootstrap host");
     strap_addr = (sockaddr_in *)strap_h->ai_addr;
     strap_addr->sin_port = htons(port);
 
     if (connect(sock, (struct sockaddr *) strap_addr, sizeof(struct sockaddr_in)) < 0)
-        error(-1, errno, "Could not connect to bootstrap socket");
+        throw_errno(fatal_exception, errno, "Could not connect to bootstrap socket");
 
     // Construct the outgoing message
     construct_message(JOIN, &out_msg, my_info, sizeof(struct client_info));
 
     // Send!
     if (send_message(sock, &out_msg) != sizeof(out_msg))
-        error(-1, errno, "Could not send bootstrap request");
+        throw_errno(fatal_exception, errno, "Could not send bootstrap request");
 
     // Wait for response
     // First message will be info about us as seen by strap
     if(read_message(sock, &in_msg) < 0)
-        error(-1, errno, "Could not receive bootstrap response");
+        throw_errno(fatal_exception, errno, "Could not receive bootstrap response");
     if (in_msg.type != PEER)
-        error(-1, EIO, "received bad bootstrap response message type");
+        throw_errno(fatal_exception, EIO, "received bad bootstrap response message type");
 
     //Extract the client id from the strap's response
     struct client_info *peer_info;
     peer_info = (struct client_info *) in_msg.data;
     if (strcmp(peer_info->name, my_info->name) != 0)
-        error(-1, EIO, "Bootstrap response gave bad name");
+        throw_errno(fatal_exception, EIO, "Bootstrap response gave bad name");
     glob_log.log(3, "Got ID %u from bootstrap\n", peer_info->id);
     my_info->id = peer_info->id;
 
@@ -291,7 +296,7 @@ void Broadcast_Channel::get_peer_list(std::string hostname, int port) {
 
     // Clean up
     if (close(sock) != 0)
-        error(-1, errno, "Error closing bootstrap socket");
+        throw_errno(fatal_exception, errno, "Error closing bootstrap socket");
 
     freeaddrinfo(strap_h);
 }
@@ -308,7 +313,7 @@ void Broadcast_Channel::notify_peers() {
 
     // The group_set should at least have ourselves to notify.
     if (group_set.size() <= 0)
-        error(-1, EINVAL, "The peer list is empty");
+        throw_errno(fatal_exception, EINVAL, "The peer list is empty");
 
     // Message each peer and let them know we're here.
     // When this is called, we haven't yet added ourself to the peer list,
@@ -322,24 +327,24 @@ void Broadcast_Channel::notify_peers() {
 
         // Open socket
         if (connect(sock, (struct sockaddr *) &peer->ip, sizeof(peer->ip)) < 0)
-            error(-1, errno, "Could not connect to peer %s", cli_to_str(peer));
+            throw_errno(fatal_exception, errno, "Could not connect to peer " << cli_to_str(peer));
 
         // Construct the outgoing message
         construct_message(PEER, &out_msg, my_info, sizeof(struct client_info));
 
         // Send!
         if (send_message(sock, &out_msg) != sizeof(out_msg))
-            error(-1, errno, "Could not send peer notification");
+            throw_errno(fatal_exception, errno, "Could not send peer notification");
 
         // Get reply
         if (read_message(sock, &in_msg) < 0)
-            error(-1, errno, "Could not receive peer response");
+            throw_errno(fatal_exception, errno, "Could not receive peer response");
         if (in_msg.type != READY)
-            error(-1, errno, "received bad peer response message type");
+            throw_errno(fatal_exception, errno, "received bad peer response message type");
 
         // Close socket
         if (close(sock) != 0)
-            error(-1, errno, "Error closing peer socket");
+            throw_errno(fatal_exception, errno, "Error closing peer socket");
     }
 }
 
@@ -360,7 +365,7 @@ void Broadcast_Channel::send_peer_list(int sock, struct client_info *target) {
 
     // Send!
     if (send_message(sock, &out_msg) != sizeof(out_msg))
-        error(-1, errno, "Could not send peer notification");
+        throw_errno(fatal_exception, errno, "Could not send peer notification");
 
     // Next, send the current list of peers
     for (int i = 0; i < (int) group_set.size(); i++) {
@@ -372,14 +377,14 @@ void Broadcast_Channel::send_peer_list(int sock, struct client_info *target) {
 
         // Send!
         if (send_message(sock, &out_msg) != sizeof(out_msg))
-            error(-1, errno, "Could not send peer notification");
+            throw_errno(fatal_exception, errno, "Could not send peer notification");
     }
 }
 
 void Broadcast_Channel::add_peer(struct message *in_msg) {
     //Sanity check
     if (in_msg->type != PEER)
-        error(-1, EIO, "Tried to add peer from non-peer message");
+        throw_errno(fatal_exception, EIO, "Tried to add peer from non-peer message");
 
     //Allocate the new client_info
     struct client_info *peer_info = (struct client_info *) malloc(sizeof(client_info));
@@ -434,12 +439,12 @@ void Broadcast_Channel::accept_connections() {
         // Wait for a connection
         client_sock = accept(server_sock, (struct sockaddr *)&client_addr, &client_len);
         if (client_sock < 0)
-            error(-1, errno, "Could not accept client.");
+            throw_errno(fatal_exception, errno, "Could not accept client.");
         glob_log.log(3, "accepted client!\n");
 
         // Handle the request
         if (read_message(client_sock, &in_msg) < 0)
-            error(-1, errno, "Could not receive client message");
+            throw_errno(fatal_exception, errno, "Could not receive client message");
 
         switch (in_msg.type) {
             case JOIN :
@@ -453,7 +458,7 @@ void Broadcast_Channel::accept_connections() {
                 construct_message(READY, &out_msg, NULL, 0);
 
                 if (send_message(client_sock, &out_msg) != sizeof(out_msg))
-                    error(-1, errno, "Could not send ready reply");
+                    throw_errno(fatal_exception, errno, "Could not send ready reply");
                 break;
 
             case QUIT:
@@ -516,7 +521,7 @@ void Broadcast_Channel::accept_connections() {
 
         // Close socket
         if (close(client_sock) != 0)
-            error(-1, errno, "Error closing peer socket");
+            throw_errno(fatal_exception, errno, "Error closing peer socket");
 
     }
 
@@ -560,7 +565,7 @@ void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
     // Keep reading chunks and adding them until the bcast is done
     while (in_msg->data_len != 0) {
         if (read_message(client_sock, in_msg) < 0)
-            error(-1, errno, "Could not receive client message");
+            throw_errno(fatal_exception, errno, "Could not receive client message");
 
         msg = (struct message *)malloc(sizeof(struct message));
         memcpy(msg, in_msg, sizeof(struct message));
@@ -599,15 +604,15 @@ void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
                     break;
             }
             if (index == (int) group_set.size())
-                error(-1, 0, "Could not find original broadcaster info struct\n");
+                throw_fatal("Could not find original broadcaster info struct\n");
             struct client_info *peer = group_set[index];
             // Open a socket to the original broadcaster
             int confirm_sock = make_socket();
             if (connect(confirm_sock, (struct sockaddr *) &peer->ip, sizeof(peer->ip)) < 0)
-                error(-1, errno, "Could not connect to peer %s", cli_to_str(peer));
+                throw_errno(fatal_exception, errno, "Could not connect to peer " << cli_to_str(peer));
             // Send the confirm message
             if (send_message(confirm_sock, &finish_msg) != sizeof(finish_msg))
-                error(-1, errno, "Could not send ready CONFIRM message");
+                throw_errno(fatal_exception, errno, "Could not send ready CONFIRM message");
             // Close the socket
             close(confirm_sock);
         }
@@ -672,18 +677,18 @@ void Broadcast_Channel::quit() {
         // Open socket
         if (connect(sock, (struct sockaddr *) &peer->ip,
                     sizeof(peer->ip)) < 0)
-            error(-1, errno, "Could not connect to peer %s", cli_to_str(peer));
+            throw_errno(fatal_exception, errno, "Could not connect to peer " << cli_to_str(peer));
 
         // Construct the outgoing message
         construct_message(QUIT, &out_msg, my_info, sizeof(struct client_info));
 
         // Send
         if (send_message(sock, &out_msg) != sizeof(out_msg))
-            error(-1, errno, "Could not send peer notification");
+            throw_errno(fatal_exception, errno, "Could not send peer notification");
 
         // Close socket
         if (close(sock) != 0)
-            error(-1, errno, "Error closing peer socket");
+            throw_errno(fatal_exception, errno, "Error closing peer socket");
     }
 
     pthread_join(receiver_thread, NULL);
@@ -725,7 +730,7 @@ void Broadcast_Channel::broadcast(msg_t algo, unsigned char *data, size_t data_l
         // Open socket
         if (connect(sock, (struct sockaddr *) &peer->ip,
                     sizeof(peer->ip)) < 0)
-            error(-1, errno, "Could not connect to peer %s", cli_to_str(peer));
+            throw_errno(fatal_exception, errno, "Could not connect to peer " << cli_to_str(peer));
 
         // Get chunks to send to peer
         std::vector< std::pair<int, unsigned char *> > *chunks;
@@ -750,7 +755,7 @@ void Broadcast_Channel::broadcast(msg_t algo, unsigned char *data, size_t data_l
 
             // Send the message
             if (send_message(sock, &out_msg) != sizeof(out_msg))
-                error(-1, errno, "Could not send peer notification");
+                throw_errno(fatal_exception, errno, "Could not send peer notification");
 
             //free the chunk memory
             free(chunk);
@@ -767,11 +772,11 @@ void Broadcast_Channel::broadcast(msg_t algo, unsigned char *data, size_t data_l
 
         // Send the message
         if (send_message(sock, &out_msg) != sizeof(out_msg))
-            error(-1, errno, "Could not send peer notification");
+            throw_errno(fatal_exception, errno, "Could not send peer notification");
 
         // Close socket
         if (close(sock) != 0)
-            error(-1, errno, "Error closing peer socket");
+            throw_errno(fatal_exception, errno, "Error closing peer socket");
     }
     delete msg_handler;
 }
@@ -794,7 +799,7 @@ void Broadcast_Channel::forward(std::list< struct message * > msg_list) {
         // Open socket
         if (connect(sock, (struct sockaddr *) &peer->ip,
                     sizeof(peer->ip)) < 0)
-            error(-1, errno, "Could not connect to peer %s", cli_to_str(peer));
+            throw_errno(fatal_exception, errno, "Could not connect to peer " << cli_to_str(peer));
 
         pthread_t forward_thread;
         struct forward_event *fe = new struct forward_event;
@@ -830,12 +835,12 @@ void *Broadcast_Channel::do_forward(void *arg){
 
         out_msg->ttl = 0;  // We don't want people to rebroadcast rebroadcasts
         if (fe->this_ptr->send_message(fe->sock, out_msg) != sizeof(struct message))
-            error(-1, errno, "Could not forward transmission");
+            throw_errno(fatal_exception, errno, "Could not forward transmission");
     }
 
     // Close socket
     if (close(fe->sock) != 0)
-        error(-1, errno, "Error closing peer socket");
+        throw_errno(fatal_exception, errno, "Error closing peer socket");
 
     if(fe->should_delete){
         for (std::list< struct message * >::iterator it = fe->msg_list.begin();

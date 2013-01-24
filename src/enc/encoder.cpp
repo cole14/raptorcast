@@ -1,4 +1,3 @@
-#include <error.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,6 +10,8 @@
 
 #include "logger.h"
 
+#include "error_handling.h"
+
 using namespace std;
 
 Outgoing_Message::~Outgoing_Message() {
@@ -22,14 +23,14 @@ Outgoing_Message::Outgoing_Message(msg_t algo, unsigned char *d, size_t d_len,
         size_t n_peers, size_t c_len) {
     //Sanity checks
     if(d == NULL)
-        error(-1, 0, "Unable to initialize outgoing message with NULL data");
+        throw_fatal("Unable to initialize outgoing message with NULL data");
     if(d_len == 0)
-        error(-1, 0, "Unable to initialize outgoing message with zero-length data");
+        throw_fatal("Unable to initialize outgoing message with zero-length data");
     if(c_len == 0)
-        error(-1, 0, "Unable to initialize outgoing message "
+        throw_fatal("Unable to initialize outgoing message "
                 "with zero-length chunks");
     if (n_peers == 0)
-        error(-1, 0, "Unable to initialize outgoing message with zero peers");
+        throw_fatal("Unable to initialize outgoing message with zero peers");
 
     data_len = d_len;
     chunk_len = c_len;

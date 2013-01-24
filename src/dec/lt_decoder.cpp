@@ -1,4 +1,3 @@
-#include <error.h>
 #include <errno.h>
 #include <functional>
 #include <queue>
@@ -7,6 +6,8 @@
 
 #include "lt_decoder.h"
 #include "logger.h"
+
+#include "error_handling.h"
 
 LT_Decoder::LT_Decoder() :
     msg_desc(NULL),
@@ -47,7 +48,7 @@ void LT_Decoder::add_chunk (unsigned char * data, size_t len, unsigned int chunk
     //   the message descriptor is always the first chunk in a transmission.
     //   So, we __should__ be good to go.  Check anyway.
     if (msg_desc == NULL)
-        error(-1, EIO, "Recieved lt chunk %u before reading header", chunk_id);
+        throw_errno(fatal_exception, EIO, "Recieved lt chunk %u before reading header", chunk_id);
 
     // OK, so now we know that this is neither the message descriptor
     //   nor a transmission terminator, and that we've already
