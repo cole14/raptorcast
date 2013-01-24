@@ -19,6 +19,7 @@ SRC_FILES+=	enc/traditional_encoder.cpp #dec/traditional_decoder.cpp
 SRC_FILES+= lt_selector.cpp enc/lt_encoder.cpp #dec/lt_decoder.cpp 
 SRC_FILES+=	dec/decoder.cpp enc/encoder.cpp
 SRC_FILES+=	logger.cpp
+SRC_FILES+=	error_handling.cpp
 
 #List of generated object files
 OBJS = $(patsubst %.cpp, $(BINDIR)/%.o, $(SRC_FILES))
