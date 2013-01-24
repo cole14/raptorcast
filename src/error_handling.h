@@ -1,6 +1,8 @@
 #ifndef __ERROR_HANDLING_H
 #define __ERROR_HANDLING_H
 
+#include <string.h>
+
 #include <string>
 #include <exception>
 
