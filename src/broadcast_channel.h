@@ -4,12 +4,13 @@
 #include <netinet/ip.h>
 #include <stddef.h>
 
+#include <chrono>
 #include <list>
 #include <map>
-#include <utility>
+#include <memory>
 #include <string>
+#include <utility>
 #include <vector>
-#include <chrono>
 
 #include "channel_listener.h"
 #include "dec/decoder.h"
@@ -95,7 +96,7 @@ class Broadcast_Channel {
         // Deal with a chunk of a message
         void handle_chunk(int client_sock, struct message *in_msg);
         // Send a list of chunks to every peer in the group
-        void forward(std::list< struct message * > msg_list);
+        void forward(std::list< std::shared_ptr< struct message > > msg_list);
 
         // Put together a message containing the given data
         void construct_message(msg_t type, struct message *dest, const void *src, size_t n);
@@ -110,7 +111,7 @@ class Broadcast_Channel {
 
 struct forward_event {
     int sock;
-    std::list< struct message * > msg_list;
+    std::list< std::shared_ptr< struct message > > msg_list;
     unsigned int peer_id;
     Broadcast_Channel *this_ptr;
 };

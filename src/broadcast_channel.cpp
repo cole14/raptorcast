@@ -1,6 +1,7 @@
 #include <arpa/inet.h>
 #include <error.h>
 #include <errno.h>
+#include <memory>
 #include <netdb.h>
 #include <netinet/ip.h>
 #include <pthread.h>
@@ -525,7 +526,7 @@ void Broadcast_Channel::accept_connections() {
 }
 
 void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
-    std::list< struct message * > msg_list;
+    std::list< std::shared_ptr<struct message> > msg_list;
     struct message *msg = NULL;
     Incoming_Message *decoder = NULL;
     bool deliver_msg = false;
@@ -537,7 +538,7 @@ void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
     // Keep track of the messages we've gotten, so we can forward them along
     msg = (struct message *)malloc(sizeof(struct message));
     memcpy(msg, in_msg, sizeof(struct message));
-    msg_list.push_back(msg);
+    msg_list.push_back(std::shared_ptr<struct message>(msg));
 
     glob_log.log(3, "received %s message\n", msg_t_to_str(in_msg->type));
 
@@ -564,7 +565,7 @@ void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
 
         msg = (struct message *)malloc(sizeof(struct message));
         memcpy(msg, in_msg, sizeof(struct message));
-        msg_list.push_back(msg);
+        msg_list.push_back(std::shared_ptr<struct message>(msg));
 
         glob_log.log(2, "Recieved chunk %u of msg %u from peer %u\n",
                 in_msg->chunk_id, in_msg->msg_id, in_msg->cli_id);
@@ -621,11 +622,76 @@ void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
         */
     }
 
+    /*
     //Clean up the msg_list
     for(std::list< struct message * >::iterator it = msg_list.begin(); it != msg_list.end(); it++){
-        // XXX Causes SIGABRT
         free(*it);
     }
+    */
+}
+
+/*
+ * Forward a list of messages to the rest of the peer group
+ */
+void Broadcast_Channel::forward(std::list< std::shared_ptr< struct message > > msg_list) {
+    int sock;
+    struct client_info *peer;
+    for (int i = 0; i < (int)group_set.size(); i++) {
+        peer =  group_set[i];
+
+        //Don't broadcast to yourself or the origin
+        if(peer->id == my_info->id || peer->id == msg_list.front()->cli_id) continue;
+
+        // Setup the socket
+        sock = make_socket();
+
+        // Open socket
+        if (connect(sock, (struct sockaddr *) &peer->ip,
+                    sizeof(peer->ip)) < 0)
+            error(-1, errno, "Could not connect to peer %s", cli_to_str(peer));
+
+        pthread_t forward_thread;
+        struct forward_event *fe = new struct forward_event;
+        fe->sock = sock;
+        fe->msg_list = msg_list;
+        fe->peer_id = peer->id;
+        fe->this_ptr = this;
+
+        pthread_create( &forward_thread, NULL, do_forward, (void *)fe);
+    }
+}
+
+void *Broadcast_Channel::do_forward(void *arg){
+    struct forward_event *fe = (struct forward_event *)arg;
+    struct message *out_msg = NULL;
+
+    // Send all messages
+    for (std::list< std::shared_ptr< struct message > >::iterator it = fe->msg_list.begin();
+            it != fe->msg_list.end(); it++) {
+        out_msg = (*it).get();
+        if (out_msg->data_len != 0) {
+            glob_log.log(2, "Forwarding chunk %d of msg %u from peer %u to peer %u\n",
+                    out_msg->chunk_id, out_msg->msg_id,
+                    out_msg->cli_id, fe->peer_id);
+        } else {
+            glob_log.log(2, "Forwarding terminal chunk of msg %u "
+                    "from peer %u to peer %u\n",
+                    out_msg->msg_id,
+                    out_msg->cli_id, fe->peer_id);
+        }
+
+        out_msg->ttl = 0;  // We don't want people to rebroadcast rebroadcasts
+        if (fe->this_ptr->send_message(fe->sock, out_msg) != sizeof(struct message))
+            error(-1, errno, "Could not forward transmission");
+    }
+
+    // Close socket
+    if (close(fe->sock) != 0)
+        error(-1, errno, "Error closing peer socket");
+
+    free(fe);
+
+    return NULL;
 }
 
 bool Broadcast_Channel::join(std::string hostname, int port){
@@ -777,66 +843,3 @@ void Broadcast_Channel::broadcast(msg_t algo, unsigned char *data, size_t data_l
     delete msg_handler;
 }
 
-/*
- * Forward a list of messages to the rest of the peer group
- */
-void Broadcast_Channel::forward(std::list< struct message * > msg_list) {
-    int sock;
-    struct client_info *peer;
-    for (int i = 0; i < (int)group_set.size(); i++) {
-        peer =  group_set[i];
-
-        //Don't broadcast to yourself or the origin
-        if(peer->id == my_info->id || peer->id == msg_list.front()->cli_id) continue;
-
-        // Setup the socket
-        sock = make_socket();
-
-        // Open socket
-        if (connect(sock, (struct sockaddr *) &peer->ip,
-                    sizeof(peer->ip)) < 0)
-            error(-1, errno, "Could not connect to peer %s", cli_to_str(peer));
-
-        pthread_t forward_thread;
-        struct forward_event *fe = new struct forward_event;
-        fe->sock = sock;
-        fe->msg_list = msg_list;
-        fe->peer_id = peer->id;
-        fe->this_ptr = this;
-
-        pthread_create( &forward_thread, NULL, do_forward, (void *)fe);
-    }
-}
-
-void *Broadcast_Channel::do_forward(void *arg){
-    struct forward_event *fe = (struct forward_event *)arg;
-    struct message *out_msg = NULL;
-
-    // Send all messages
-    for (std::list< struct message * >::iterator it = fe->msg_list.begin();
-            it != fe->msg_list.end(); it++) {
-        out_msg = *it;
-        if (out_msg->data_len != 0) {
-            glob_log.log(2, "Forwarding chunk %u of msg %u from peer %u to peer %u\n",
-                    out_msg->chunk_id, out_msg->msg_id,
-                    out_msg->cli_id, fe->peer_id);
-        } else {
-            glob_log.log(2, "Forwarding terminal chunk of msg %u "
-                    "from peer %u to peer %u\n",
-                    out_msg->msg_id,
-                    out_msg->cli_id, fe->peer_id);
-        }
-
-        out_msg->ttl = 0;  // We don't want people to rebroadcast rebroadcasts
-        if (fe->this_ptr->send_message(fe->sock, out_msg) != sizeof(struct message))
-            error(-1, errno, "Could not forward transmission");
-    }
-
-    // Close socket
-    if (close(fe->sock) != 0)
-        error(-1, errno, "Error closing peer socket");
-
-    free(fe);
-
-    return NULL;
-}
