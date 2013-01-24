@@ -10,7 +10,7 @@ class fatal_exception : public std::exception {
     public:
         fatal_exception(const char *str);
         fatal_exception(const std::string &str);
-        virtual const char *what();
+        virtual const char *what() const throw();
         virtual ~fatal_exception() throw();
 
     private:
