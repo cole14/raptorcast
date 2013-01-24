@@ -230,6 +230,7 @@ void Client::run_cli() {
             if(siz != fread(file_contents, sizeof(unsigned char), siz, fp)){
                 error(-1, errno, "Error reading file");
             }
+            fclose(fp);
 
             //Broadcast the file
             printf("Sending file...\n");

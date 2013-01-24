@@ -12,8 +12,8 @@ class Decoder;
 
 class Decoder_Context {
     public :
-        virtual std::vector<unsigned> *get_block_list() = 0;
-        virtual std::vector<unsigned> *get_chunk_list() = 0;
+        virtual void fill_block_list(std::vector<unsigned> *dest) = 0;
+        virtual void fill_chunk_list(std::vector<unsigned> *dest) = 0;
         virtual unsigned char *get_block(unsigned index) = 0;
         virtual unsigned char *get_chunk(unsigned index) = 0;
 
@@ -36,8 +36,8 @@ class Incoming_Message : public Decoder_Context {
         unsigned char *get_message();
 
         // Decoder interface
-        std::vector<unsigned> *get_block_list();
-        std::vector<unsigned> *get_chunk_list();
+        void fill_block_list(std::vector<unsigned> *dest);
+        void fill_chunk_list(std::vector<unsigned> *dest);
         unsigned char *get_block(unsigned index);
         unsigned char *get_chunk(unsigned index);
 

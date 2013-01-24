@@ -536,7 +536,7 @@ void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
         return;  // It's just a bump of one of our own messages
 
     // Keep track of the messages we've gotten, so we can forward them along
-    msg = (struct message *)malloc(sizeof(struct message));
+    msg = new struct message();
     memcpy(msg, in_msg, sizeof(struct message));
     msg_list.push_back(std::shared_ptr<struct message>(msg));
 
@@ -563,7 +563,7 @@ void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
         if (read_message(client_sock, in_msg) < 0)
             error(-1, errno, "Could not receive client message");
 
-        msg = (struct message *)malloc(sizeof(struct message));
+        msg = new struct message();
         memcpy(msg, in_msg, sizeof(struct message));
         msg_list.push_back(std::shared_ptr<struct message>(msg));
 
@@ -689,7 +689,7 @@ void *Broadcast_Channel::do_forward(void *arg){
     if (close(fe->sock) != 0)
         error(-1, errno, "Error closing peer socket");
 
-    free(fe);
+    delete fe;
 
     return NULL;
 }
@@ -839,7 +839,10 @@ void Broadcast_Channel::broadcast(msg_t algo, unsigned char *data, size_t data_l
         // Close socket
         if (close(sock) != 0)
             error(-1, errno, "Error closing peer socket");
+
+        delete chunks;
     }
     delete msg_handler;
+    free(data);
 }
 

@@ -25,8 +25,8 @@ Incoming_Message::~Incoming_Message() {
         free(it->second);
     }
 
-    // Get rid of the decoder
     free(decoder);
+    free(descriptor);
 }
 
 void Incoming_Message::add_chunk(unsigned char *data, size_t len, int chunk_id) {
@@ -64,14 +64,17 @@ void Incoming_Message::add_chunk(unsigned char *data, size_t len, int chunk_id) 
 
     glob_log.log(3, "Added chunk %u\n", chunk_id);
     glob_log.log(3, "Current chunks:");
-    std::vector<unsigned> *chunk_list = get_chunk_list();
-    for (std::vector<unsigned>::iterator it = chunk_list->begin(); it != chunk_list->end(); it++) {
+    std::vector<unsigned> chunk_list;
+    fill_chunk_list(&chunk_list);
+    for (std::vector<unsigned>::iterator it = chunk_list.begin(); it != chunk_list.end(); it++) {
         glob_log.log(3, " %u", *it);
     }
     glob_log.log(3, "\n");
     glob_log.log(3, "Current blocks:");
-    std::vector<unsigned> *block_list = get_block_list();
-    for (std::vector<unsigned>::iterator it = block_list->begin(); it != block_list->end(); it++) {
+
+    std::vector<unsigned> block_list;
+    fill_block_list(&block_list);
+    for (std::vector<unsigned>::iterator it = block_list.begin(); it != block_list.end(); it++) {
         glob_log.log(3, " %u", *it);
     }
     glob_log.log(3, "\n");
@@ -109,28 +112,25 @@ unsigned char *Incoming_Message::get_message() {
     return data;
 }
 
-std::vector<unsigned> *Incoming_Message::get_block_list() {
+// Note: memory for the following two functions is OWNED BY THE CALLER
+void Incoming_Message::fill_block_list(std::vector<unsigned> *dest) {
     typedef std::map<unsigned, unsigned char *>::iterator map_it;
-    std::vector<unsigned> *list = new std::vector<unsigned>();
     for (map_it it = blocks.begin(); it != blocks.end(); it++) {
-        list->push_back(it->first);
+        dest->push_back(it->first);
     }
-    return list;
+}
+
+void Incoming_Message::fill_chunk_list(std::vector<unsigned> *dest) {
+    typedef std::map<unsigned, unsigned char *>::iterator map_it;
+    for (map_it it = chunks.begin(); it != chunks.end(); it++) {
+        dest->push_back(it->first);
+    }
 }
 
 unsigned char *Incoming_Message::get_block(unsigned index) {
     if (blocks.find(index) == blocks.end())
         return NULL;
     return blocks[index];
-}
-
-std::vector<unsigned> *Incoming_Message::get_chunk_list() {
-    typedef std::map<unsigned, unsigned char *>::iterator map_it;
-    std::vector<unsigned> *list = new std::vector<unsigned>();
-    for (map_it it = chunks.begin(); it != chunks.end(); it++) {
-        list->push_back(it->first);
-    }
-    return list;
 }
 
 unsigned char *Incoming_Message::get_chunk(unsigned index) {

@@ -15,6 +15,8 @@ using namespace std;
 
 Outgoing_Message::~Outgoing_Message() {
     free(padded_data);
+    delete encoder;
+    // blocks is just a list of pointers, don't need to delete.
 }
 
 // Interface for the broadcast channel

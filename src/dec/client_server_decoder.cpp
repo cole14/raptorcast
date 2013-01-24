@@ -15,7 +15,10 @@ void Client_Server_Decoder::notify (unsigned chunk_id) {
 bool Client_Server_Decoder::is_ready() {
     if (context->get_descriptor() == NULL)
         return false;
+
+    std::vector<unsigned> block_list;
+    context->fill_block_list(&block_list);
     size_t expected_blocks = context->get_descriptor()->total_chunks;
-    size_t decoded_blocks = context->get_block_list()->size();
+    size_t decoded_blocks = block_list.size();
     return decoded_blocks >= expected_blocks;
 }
