@@ -38,9 +38,10 @@ class Broadcast_Channel {
         bool join(std::string hostname, int port);
 
         // Broadcast a message over this channel
+        // 'buf' is owned by the caller.
         void broadcast(msg_t algo, unsigned char *buf, size_t buf_len);
 
-        // Print the list of known peers at indentation level 'indent' to stdout
+        // Print the list of known peers at indentation level 'indent' to the glob_log
         void print_peers(int indent = 0);
 
         // Notify peers that we're quitting, clean up connections, etc.

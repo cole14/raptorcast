@@ -843,6 +843,5 @@ void Broadcast_Channel::broadcast(msg_t algo, unsigned char *data, size_t data_l
         delete chunks;
     }
     delete msg_handler;
-    free(data);
 }
 
