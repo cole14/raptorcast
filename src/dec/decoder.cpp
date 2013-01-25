@@ -55,6 +55,10 @@ void Incoming_Message::add_chunk(unsigned char *data, size_t len, int chunk_id) 
         return;
     }
 
+    // Don't allocate space for a chunk we've already read
+    if (chunks.find(chunk_id) != chunks.end())
+        return;
+
     // Add the chunk to our list
     unsigned char *chunk = (unsigned char *) malloc(len);
     memcpy(chunk, data, len);

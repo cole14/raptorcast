@@ -539,10 +539,8 @@ void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
     dec_id = (((uint64_t)in_msg->cli_id) << 32) | (uint64_t)in_msg->msg_id;
 
     // Check if this message has already been completed
-    if (finished_messages.find(dec_id) != finished_messages.end()) {
-        glob_log.log(2, "Bailing out for expired decoder id\n");
+    if (finished_messages.find(dec_id) != finished_messages.end())
         return;
-    }
 
     // Get a decoder for this message
     if(decoders.find(dec_id) == decoders.end()){
