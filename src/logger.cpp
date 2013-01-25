@@ -109,3 +109,49 @@ void logger::dump_buf(int l, void *b, size_t len){
     l_mut.unlock();
 }
 
+void logger::pretty_print_id_list(int l, std::vector< unsigned > &list){
+    if(l > level)
+        return;
+
+    // WARNING!
+    //  Don't use logger::log() in this method!
+    //  We want the entire dump_buf method to be atomic,
+    //  so calling a lower-level log method will cause
+    //  a deadlock because that method will also try to
+    //  be atomic.
+    l_mut.lock();
+
+    //Walk along the vector and print series of consecutive
+    //integers as a range "n-m".  e.g. "1, 3, 5-9, 12"
+    if(list.size() > 0){
+        unsigned last = 0;
+        bool in_ell = false;
+        std::vector< unsigned >::iterator it = list.begin();
+        fprintf(fp, "%u", *it);
+
+        for(it++; it != list.end(); it++){
+            if(*it != last + 1){
+                if(in_ell){
+                    in_ell = false;
+                    fprintf(fp, "%u, %u", last, *it);
+                }else{
+                    fprintf(fp, ", %u", *it);
+                }
+            }else if(!in_ell){
+                in_ell = true;
+                fprintf(fp, "-");
+            }
+            last = *it;
+        }
+
+        if(in_ell)
+            fprintf(fp, "%u\n", last);
+        else
+            fprintf(fp, "\n");
+    }else{
+        fprintf(fp, "Empty.\n");
+    }
+
+    l_mut.unlock();
+}
+

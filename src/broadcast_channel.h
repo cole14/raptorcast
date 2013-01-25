@@ -44,6 +44,9 @@ class Broadcast_Channel {
         // Print the list of known peers at indentation level 'indent' to the glob_log
         void print_peers(int indent = 0);
 
+        // Print the message history at indentation level 'indent' to the glob_log
+        void print_msgs(int indent = 0);
+
         // Notify peers that we're quitting, clean up connections, etc.
         void quit();
 

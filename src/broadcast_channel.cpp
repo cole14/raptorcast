@@ -14,6 +14,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <utility>
+#include <sstream>
 
 #include "broadcast_channel.h"
 
@@ -227,6 +228,46 @@ ssize_t Broadcast_Channel::send_message(int sock, struct message *msg) {
     }
 
     return (ssize_t)tot_sent;
+}
+
+void Broadcast_Channel::print_msgs(int indent) {
+    //Preconstruct the indentation string
+    std::stringstream idnt;
+    for(int i = 0; i < indent; i++)
+        idnt << "    ";
+
+    //Print out the completed message info
+    //    Peer: # Message: #
+    glob_log.log(1, "%s\n", "Completed Messages:");
+    for(std::set< uint64_t >::iterator it = finished_messages.begin(); it != finished_messages.end(); it++){
+        uint64_t dec_id = *it;
+        uint64_t cli_id = (dec_id & 0xFFFFFFFF00000000LL) >> 32;
+        uint64_t msg_id = dec_id & 0xFFFFFFFFLL;
+
+        glob_log.log(1, "%sPeer: %u Message: %u\n", idnt.str().c_str(), (unsigned)cli_id, (unsigned)msg_id);
+    }
+
+    //Print out the outstanding message info
+    //    Peer: # Message: #
+    //        Chunks: # # ... #
+    //        Blocks: # # ... #
+    glob_log.log(1, "%s\n", "Outstanding Messages:");
+    std::vector< unsigned > msg_info;
+    for(std::map< uint64_t, Incoming_Message * >::iterator it = decoders.begin(); it != decoders.end(); it++){
+        uint64_t dec_id = it->first;
+        uint64_t cli_id = (dec_id & 0xFFFFFFFF00000000LL) >> 32;
+        uint64_t msg_id = dec_id & 0xFFFFFFFFLL;
+
+        glob_log.log(1, "%sPeer: %u Message: %u:\n", idnt.str().c_str(), (unsigned)cli_id, (unsigned)msg_id);
+
+        glob_log.log(1, "%s%sChunks: ", idnt.str().c_str(), "    ");
+        it->second->fill_chunk_list(&msg_info);
+        glob_log.pretty_print_id_list(1, msg_info);
+
+        glob_log.log(1, "%s%sBlocks: ", idnt.str().c_str(), "    ");
+        it->second->fill_block_list(&msg_info);
+        glob_log.pretty_print_id_list(1, msg_info);
+    }
 }
 
 /* group_set management functions */
