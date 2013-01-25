@@ -5,6 +5,7 @@
 #include <netdb.h>
 #include <netinet/ip.h>
 #include <pthread.h>
+#include <set>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -535,15 +536,15 @@ void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
     if (in_msg->cli_id == my_info->id)
         return;  // It's just a bump of one of our own messages
 
-    // Keep track of the messages we've gotten, so we can forward them along
-    msg = new struct message();
-    memcpy(msg, in_msg, sizeof(struct message));
-    msg_list.push_back(std::shared_ptr<struct message>(msg));
+    dec_id = (((uint64_t)in_msg->cli_id) << 32) | (uint64_t)in_msg->msg_id;
 
-    glob_log.log(3, "received %s message\n", msg_t_to_str(in_msg->type));
+    // Check if this message has already been completed
+    if (finished_messages.find(dec_id) != finished_messages.end()) {
+        glob_log.log(2, "Bailing out for expired decoder id\n");
+        return;
+    }
 
     // Get a decoder for this message
-    dec_id = (((uint64_t)in_msg->cli_id) << 32) | (uint64_t)in_msg->msg_id;
     if(decoders.find(dec_id) == decoders.end()){
         glob_log.log(2, "Constructing decoder for message %u\n", in_msg->msg_id);
         decoder = new Incoming_Message(in_msg->type);
@@ -557,6 +558,13 @@ void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
     // Add the chunk we just got
     decoder->add_chunk(in_msg->data, in_msg->data_len, in_msg->chunk_id);
     glob_log.dump_buf(3, in_msg->data, in_msg->data_len);
+
+    // Keep track of the messages we've gotten, so we can forward them along
+    msg = new struct message();
+    memcpy(msg, in_msg, sizeof(struct message));
+    msg_list.push_back(std::shared_ptr<struct message>(msg));
+
+    glob_log.log(3, "received %s message\n", msg_t_to_str(in_msg->type));
 
     // Keep reading chunks and adding them until the bcast is done
     while (in_msg->data_len != 0) {
@@ -612,22 +620,16 @@ void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
             // Close the socket
             close(confirm_sock);
         }
+        glob_log.log(2, "Erasing decoder for message %u\n", in_msg->msg_id);
+        finished_messages.insert(dec_id);
+        decoders.erase(dec_id);
+        delete decoder;
         /*
          * XXX (Dan 1/17/12) Figure out how to do this correctly
-        if(decoder->is_finished()) {
-            glob_log.log(2, "Erasing decoder for message %u\n", in_msg->msg_id);
-            decoders.erase(dec_id);
-            delete msg_dec;
-        }
+         * We need to redirect transmissions that are directed at messages that
+         * we've closed out.
         */
     }
-
-    /*
-    //Clean up the msg_list
-    for(std::list< struct message * >::iterator it = msg_list.begin(); it != msg_list.end(); it++){
-        free(*it);
-    }
-    */
 }
 
 /*

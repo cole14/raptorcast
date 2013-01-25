@@ -8,6 +8,7 @@
 #include <list>
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -21,7 +22,7 @@
 struct client_info {
     client_info(std::string name);
     struct sockaddr_in ip;
-    unsigned int id;
+    unsigned id;
     char name[MAX_NAME_LEN];
 };
 
@@ -56,6 +57,7 @@ class Broadcast_Channel {
         std::vector< struct client_info * > group_set;
         // Association between message_ids and their active decoders
         std::map< uint64_t, Incoming_Message * > decoders;
+        std::set< uint64_t > finished_messages;
         // The chunk receiver thread
         pthread_t receiver_thread;
         // The chunk receiver socket
