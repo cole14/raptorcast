@@ -13,7 +13,7 @@
 class LT_Encoder : public Encoder {
     public :
         LT_Encoder(Encoder_Context *ctx);
-        virtual ~LT_Encoder() {}
+        ~LT_Encoder();
         std::vector<unsigned> *get_chunk_list(unsigned peer);
         size_t get_chunk(unsigned char **dest, unsigned chunk_id);
         Message_Descriptor *get_descriptor();

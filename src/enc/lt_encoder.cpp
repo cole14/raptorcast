@@ -28,6 +28,10 @@ LT_Encoder::LT_Encoder(Encoder_Context *ctx) :
     lts = new lt_selector(LT_SEED, context->get_num_blocks());
 }
 
+LT_Encoder::~LT_Encoder() {
+    delete lts;
+}
+
 struct Message_Descriptor *LT_Encoder::get_descriptor() {
     Message_Descriptor *msg_desc = Encoder::get_descriptor();
     msg_desc->seed = LT_SEED;

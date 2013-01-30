@@ -54,6 +54,7 @@ void LT_Decoder::notify(unsigned chunk_id) {
 
     if (chunk->degree == 1) {
         add_block(chunk);
+        delete chunk;
     } else {
         chunk_list.push_back(chunk);
     }
