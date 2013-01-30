@@ -18,7 +18,7 @@ bool Client_Server_Decoder::is_ready() {
 
     std::vector<unsigned> block_list;
     context->fill_block_list(&block_list);
-    size_t expected_blocks = context->get_descriptor()->total_chunks;
+    size_t expected_blocks = context->get_descriptor()->total_blocks;
     size_t decoded_blocks = block_list.size();
     return decoded_blocks >= expected_blocks;
 }

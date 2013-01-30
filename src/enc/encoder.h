@@ -51,9 +51,10 @@ class Outgoing_Message : public Encoder_Context {
 };
 
 struct Message_Descriptor {
-    size_t total_chunks;
+    size_t total_blocks;
     size_t chunk_len;
     size_t num_peers;
+    unsigned int seed;
 };
 
 class Encoder {

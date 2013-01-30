@@ -9,13 +9,10 @@
 
 class LT_Decoder : public Decoder {
     public:
-        LT_Decoder();
+        LT_Decoder(Decoder_Context *ctx);
         ~LT_Decoder();
-        void add_chunk (unsigned char * data, size_t len, unsigned int chunk_id);
-        bool is_ready ();
-        bool is_finished ();
-        unsigned char * get_message ();
-        size_t get_len ();
+        void notify (unsigned chunk_id);
+        bool is_ready();
         bool should_forward () { return true; }
 
     private:

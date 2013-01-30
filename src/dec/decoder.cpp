@@ -47,8 +47,8 @@ void Incoming_Message::add_chunk(unsigned char *data, size_t len, int chunk_id) 
         descriptor = (Message_Descriptor *) malloc(len);
         memcpy(descriptor, data, len);
 
-        glob_log.log(3, "Recieved descriptor (id -1): total_chunks %zu, chunk_len %zu, num_peers %zu.\n",
-                descriptor->total_chunks,
+        glob_log.log(3, "Recieved descriptor (id -1): total_blocks %zu, chunk_len %zu, num_peers %zu.\n",
+                descriptor->total_blocks,
                 descriptor->chunk_len,
                 descriptor->num_peers);
 

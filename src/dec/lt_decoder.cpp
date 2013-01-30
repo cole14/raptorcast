@@ -17,52 +17,27 @@ LT_Decoder::LT_Decoder() :
 LT_Decoder::~LT_Decoder()
 { }
 
-void LT_Decoder::add_chunk (unsigned char * data, size_t len, unsigned int chunk_id) {
-    if (len == 0) // End of transmission, ignore
-        return;
-
-    if (is_ready())  // No need to keep processing chunks, the bc will auto-forawrd them
-        return;
-
-    if (chunk_id == 0) {
-        if (msg_desc != NULL) // Repeat or terminater, ignore it.
-            return;
-
-        // Read the message descriptor
-        msg_desc = new lt_descriptor();
-        memcpy(msg_desc, data, sizeof(lt_descriptor));
-
-        // Build the block selector
-        lts = new lt_selector(msg_desc->seed, msg_desc->total_blocks);
-
-        glob_log.log(3, "Read lt message descriptor (chunk 0)!\n");
-        glob_log.log(3, "total_blocks %zu, num_peers %zu, chunk_len %zu, seed %d\n",
-                msg_desc->total_blocks, msg_desc->num_peers,
-                msg_desc->chunk_len, msg_desc->seed);
-        return;
-    }
-
-
-    // At this point, it would make sense to check whether we've seen
-    //   the message descriptor is always the first chunk in a transmission.
-    //   So, we __should__ be good to go.  Check anyway.
+void LT_Decoder::notify(unsigned chunk_id) {
+    // First we need to do some setup: build the selector, etc.
+    // Requirement: context has already recieved and processed the descriptor
     if (msg_desc == NULL)
         error(-1, EIO, "Recieved lt chunk %u before reading header", chunk_id);
 
-    // OK, so now we know that this is neither the message descriptor
-    //   nor a transmission terminator, and that we've already
-    //   seen the message descriptor.  So, we can process the chunk.
+    if (lts == NULL) {
+        Message_Descriptor *msg_desc = context->get_descriptor();
+        lts = new lt_selector(msg_desc->seed, msg_desc->total_blocks);
+    }
+
     glob_log.log(3, "Read lt chunk %u!\n", chunk_id);
 
     Chunk *chunk = new Chunk();
     chunk->id = chunk_id;
-    chunk->data = new unsigned char[msg_desc->chunk_len];
-    memcpy(chunk->data, data, msg_desc->chunk_len);
+    chunk->data = context->get_chunk(chunk_id);
     build_block_list(chunk);
     chunks_seen++;
 
     for (unsigned int i = 0; i < msg_desc->total_blocks; i++) {
-        if (decoded_blocks.find(i) != decoded_blocks.end())   // Fuck C++
+        if (decoded_blocks.find(i) != decoded_blocks.end())
             reduce(chunk, decoded_blocks[i]);
     }
 

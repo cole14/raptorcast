@@ -29,9 +29,7 @@ LT_Encoder::LT_Encoder(Encoder_Context *ctx) :
 }
 
 struct Message_Descriptor *LT_Encoder::get_descriptor() {
-    LT_Descriptor *msg_desc = (LT_Descriptor *) Encoder::get_descriptor();
-    msg_desc = (LT_Descriptor *) realloc(msg_desc, sizeof(LT_Descriptor));
-    msg_desc->total_blocks = context->get_num_blocks();
+    Message_Descriptor *msg_desc = Encoder::get_descriptor();
     msg_desc->seed = LT_SEED;
     return (Message_Descriptor *) msg_desc;
 }

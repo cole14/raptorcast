@@ -121,7 +121,7 @@ Encoder *Outgoing_Message::get_encoder(msg_t algo){
 Message_Descriptor *Encoder::get_descriptor() {
     Message_Descriptor *desc;
     desc = (Message_Descriptor *)malloc(sizeof(Message_Descriptor));
-    desc->total_chunks = context->get_num_blocks();
+    desc->total_blocks = context->get_num_blocks();
     desc->chunk_len = context->get_block_len();
     desc->num_peers = context->get_num_peers();
     return desc;

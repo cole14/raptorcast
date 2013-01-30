@@ -13,12 +13,6 @@
 
 #include "enc/encoder.h"
 
-struct LT_Descriptor {
-    Message_Descriptor desc;
-    size_t total_blocks;
-    unsigned int seed;
-};
-
 class lt_selector {
     public:
         lt_selector(int seed, int num_blocks);
