@@ -135,13 +135,6 @@ void LT_Decoder::add_block (Chunk *in_chunk){
         Chunk *work_chunk = work_queue.front();
         unsigned char *block = chunk_to_block(work_chunk);
         unsigned block_id = work_chunk->block_list[0];
-        if (block == NULL) {
-            glob_log.log(1, "Error, block %u turned up NULL!\n", block_id);
-
-        }
-
-
-
         context->set_block(block, block_id);
 
         // Check all remaining chunks, and if they can be reduced
@@ -150,10 +143,12 @@ void LT_Decoder::add_block (Chunk *in_chunk){
         for (unsigned int i = 0; i < chunk_list.size(); i++) {
             Chunk *chunk = chunk_list[i];
             reduce(chunk, block_id);
-            if (chunk->degree == 1)
+            if (chunk->degree == 1) {
                 work_queue.push(chunk);
+                chunk->degree = 0;
+            }
         }
-        clean_chunks();
+        //clean_chunks();
     }
 }
 
