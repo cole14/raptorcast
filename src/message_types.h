@@ -31,4 +31,12 @@ struct message {
     unsigned char data[PACKET_LEN];
 };
 
+struct Message_Descriptor {
+    size_t total_blocks;
+    size_t chunk_len;
+    size_t num_peers;
+    unsigned seed;
+};
+
+
 #endif /* __MESSAGE_TYPES_H */

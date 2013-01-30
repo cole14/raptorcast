@@ -7,15 +7,22 @@
 
 #include "lt_decoder.h"
 #include "logger.h"
+#include "message_types.h"
 
 LT_Decoder::LT_Decoder() :
-    msg_desc(NULL),
+    lts(NULL),
     chunks_seen(0),
     ready(false)
 { }
 
 LT_Decoder::~LT_Decoder()
-{ }
+{
+    for (unsigned i = 0; i < chunk_list.size(); i++)
+        delete chunk_list[i];
+
+    if (lts)
+        delete lts;
+}
 
 void LT_Decoder::notify(unsigned chunk_id) {
     // First we need to do some setup: build the selector, etc.
@@ -36,9 +43,12 @@ void LT_Decoder::notify(unsigned chunk_id) {
     build_block_list(chunk);
     chunks_seen++;
 
-    for (unsigned int i = 0; i < msg_desc->total_blocks; i++) {
-        if (decoded_blocks.find(i) != decoded_blocks.end())
-            reduce(chunk, decoded_blocks[i]);
+    std::vector<unsigned> block_list;
+    std::vector<unsigned>::iterator block_it;
+    context->fill_block_list(&block_list);
+
+    for (block_it = block_list.begin; block_it != block_list.end(); it++) {
+        reduce(chunk, block_list[i]);
     }
 
     if (chunk->degree == 1) {
@@ -49,9 +59,7 @@ void LT_Decoder::notify(unsigned chunk_id) {
 }
 
 /*
- * Iterate the random number generator up to where we figure
- * out what blocks go into the chunk corresponding to this
- * chunk's id
+ * Get the list of blocks for this chunk from the selector
  */
 void LT_Decoder::build_block_list(Chunk *chunk) {
     int num_blocks;
@@ -66,16 +74,17 @@ void LT_Decoder::build_block_list(Chunk *chunk) {
 }
 
 /*
- * checks if a block is in a chunk's block list, and if so,
+ * checks if a block was used to make a chunk, and if so,
  * reduces the chunk by the block.
  */
-void LT_Decoder::reduce (Chunk *chunk, Block *block) {
+void LT_Decoder::reduce (Chunk *chunk, unsigned block_id) {
     if (chunk->degree < 2)
         return;
 
+    // Figure out whether this block was used in the making of this chunk
     int match = -1;
     for (unsigned int i = 0; i < chunk->block_list.size(); i++) {
-        if (chunk->block_list[i] == block->id) {
+        if (chunk->block_list[i] == block_id) {
             match = i;
             break;
         }
@@ -85,13 +94,14 @@ void LT_Decoder::reduce (Chunk *chunk, Block *block) {
         return;
 
     glob_log.log(3, "Reducing chunk %d by block %d\n",
-            chunk->id, block->id);
+            chunk->id, block_id);
 
+    unsigned char *block = context->get_block(block_id);
+    for (unsigned pos = 0; pos < context->get_descriptor()->chunk_len; pos++) {
+        chunk->data[pos] ^= block[pos];
+    }
     chunk->block_list.erase(chunk->block_list.begin()+match);
     chunk->degree--;
-    for (unsigned int pos = 0; pos < msg_desc->chunk_len; pos++) {
-        chunk->data[pos] ^= block->data[pos];
-    }
 }
 
 /*
@@ -99,14 +109,16 @@ void LT_Decoder::reduce (Chunk *chunk, Block *block) {
  *   degree = block_list.size() == 1) and builds a block out
  *   of it.
  */
-LT_Decoder::Block *LT_Decoder::chunk_to_block(Chunk *chunk) {
+unsigned char *LT_Decoder::chunk_to_block(Chunk *chunk) {
     if (chunk->block_list.size() != 1)
         return NULL;
-    Block *block = new Block();
-    block->data = chunk->data;
-    block->id = chunk->block_list[0];
-    glob_log.log(5, "Converting chunk %u into block %u.  Contents:\n%s\n",
-            chunk->id, block->id, block->data);
+    size_t block_len = context->get_descriptor()->chunk_len;
+    unsigned char *block = (unsigned char *)malloc(block_len);
+    memset(block, 0, block_len);
+    memcpy(block, chunk->data, block_len);
+
+    glob_log.log(5, "Converted chunk %u into block %u.  Contents:\n%s\n",
+            chunk->id, chunk->block_list[0], block);
     return block;
 }
 
@@ -118,27 +130,39 @@ LT_Decoder::Block *LT_Decoder::chunk_to_block(Chunk *chunk) {
 void LT_Decoder::add_block (Chunk *in_chunk){
     std::queue< Chunk * > work_queue;
     for (work_queue.push(in_chunk); !work_queue.empty(); work_queue.pop()) {
-        Block *block = chunk_to_block(work_queue.front());
+        // Extract the block from the finished chunk
+        Chunk *work_chunk = work_queue.front();
+        unsigned char *block = chunk_to_block(chunk);
+        unsigned block_id = work_chunk->block_list[0];
+        context->set_block(block, block_id);
+
+        // Check all remaining chunks, and if they can be reduced
+        // to degree 1, remove them from the list and add them
+        // to the work queue.
         for (unsigned int i = 0; i < chunk_list.size(); i++) {
             Chunk *chunk = chunk_list[i];
             reduce(chunk, block);
             if (chunk->degree == 1)
                 work_queue.push(chunk);
         }
-        decoded_blocks[block->id] = block;
         clean_chunks();
     }
 }
 
+// Remove decoded chunks from our working list
 void LT_Decoder::clean_chunks () {
     for (unsigned i = 0; i < chunk_list.size(); i++) {
         if (chunk_list[i]->degree == 1) {
+            Chunk *temp = chunk_list[i];
             chunk_list.erase(chunk_list.begin()+i);
+            i--;
+            delete temp;
         }
     }
 }
 
 bool LT_Decoder::is_ready () {
+    Message_Descriptor *msg_desc = context->get_descriptor();
     if (msg_desc == NULL) {
         return false;
     } else if (ready) {
@@ -152,28 +176,4 @@ bool LT_Decoder::is_ready () {
     } else {
         return false;
     }
-}
-bool LT_Decoder::is_finished () {
-    return false;
-}
-unsigned char * LT_Decoder::get_message () {
-    if (!is_ready())
-        return NULL;
-
-    size_t data_len = get_len();
-    unsigned char *data, *dp;
-    data = (unsigned char *) malloc(data_len);
-    dp = data;
-
-    for (unsigned b = 0; b < decoded_blocks.size(); b++) {
-        memcpy(dp, decoded_blocks[b]->data, msg_desc->chunk_len);
-        dp += msg_desc->chunk_len;
-    }
-
-    return data;
-}
-size_t LT_Decoder::get_len () {
-    if (!is_ready())
-        return 0;
-    return msg_desc->total_blocks * msg_desc->chunk_len;
 }

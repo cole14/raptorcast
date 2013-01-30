@@ -3,7 +3,7 @@
 
 #include <vector>
 
-#include "../message_types.h"
+#include "message_types.h"
 
 // Forward declaration for use in Outgoing_Message
 class Encoder;
@@ -48,13 +48,6 @@ class Outgoing_Message : public Encoder_Context {
 
         // Get an encoder object for message type 'algo'
         Encoder *get_encoder(msg_t algo);
-};
-
-struct Message_Descriptor {
-    size_t total_blocks;
-    size_t chunk_len;
-    size_t num_peers;
-    unsigned int seed;
 };
 
 class Encoder {

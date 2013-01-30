@@ -67,11 +67,14 @@ void Incoming_Message::add_chunk(unsigned char *data, size_t len, int chunk_id) 
 
     decoder->notify(chunk_id);
 
+    // The remaining code is just log stuff.
     glob_log.log(3, "Added chunk %u\n", chunk_id);
     glob_log.log(3, "Current chunks:");
+
     std::vector<unsigned> chunk_list;
+    std::vector<unsigned>::iterator it;
     fill_chunk_list(&chunk_list);
-    for (std::vector<unsigned>::iterator it = chunk_list.begin(); it != chunk_list.end(); it++) {
+    for (it = chunk_list.begin(); it != chunk_list.end(); it++) {
         glob_log.log(3, " %u", *it);
     }
     glob_log.log(3, "\n");
@@ -79,7 +82,7 @@ void Incoming_Message::add_chunk(unsigned char *data, size_t len, int chunk_id) 
 
     std::vector<unsigned> block_list;
     fill_block_list(&block_list);
-    for (std::vector<unsigned>::iterator it = block_list.begin(); it != block_list.end(); it++) {
+    for (it = block_list.begin(); it != block_list.end(); it++) {
         glob_log.log(3, " %u", *it);
     }
     glob_log.log(3, "\n");

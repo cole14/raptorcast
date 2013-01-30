@@ -16,11 +16,6 @@ class LT_Decoder : public Decoder {
         bool should_forward () { return true; }
 
     private:
-        struct Block {
-            unsigned int id;
-            unsigned char *data;
-        };
-
         struct Chunk {
             unsigned int id;
             unsigned int degree;
@@ -29,16 +24,16 @@ class LT_Decoder : public Decoder {
         };
 
         void build_block_list(Chunk *chunk);
-        Block *chunk_to_block(Chunk *chunk);
+        unsigned char *chunk_to_block(Chunk *chunk);
 
-        void reduce (Chunk *chunk, Block *block);
+        void reduce (Chunk *chunk, unsigned block_id);
         void add_block (Chunk *chunk);
         void clean_chunks ();
 
-        std::map< unsigned int, Block * > decoded_blocks;
+        // Working set of chunks that haven't been decoded.
+        //   Chunks reference memory owned by the decoder context.
         std::vector< Chunk * > chunk_list;
 
-        LT_Descriptor *msg_desc;
         lt_selector *lts;
 
         int chunks_seen;
