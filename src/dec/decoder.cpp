@@ -158,12 +158,31 @@ unsigned char *Incoming_Message::get_chunk(unsigned index) {
 }
 
 void Incoming_Message::set_block(unsigned char *data, unsigned index) {
+    if (data == NULL)
+        glob_log.log(1, "ERROR: attempted to insert null block!\n");
     // data has been passed back down to us, so we own it.
     unsigned char *block = get_block(index);
     if (block != NULL) {
         free(block);
     }
     blocks[index] = data;
+}
+
+// Debug function
+void Incoming_Message::print_lists() {
+    std::vector<unsigned> list;
+    std::vector<unsigned>::iterator it;
+    printf("Blocks:\n");
+    fill_block_list(&list);
+    for (it = list.begin(); it != list.end(); it++) {
+        printf("ID: %u\tloc: %p\n", *it, get_block(*it));
+    }
+    printf("\n");
+    printf("Chunks:\n");
+    fill_chunk_list(&list);
+    for (it = list.begin(); it != list.end(); it++) {
+        printf("ID: %u\tloc: %p\n", *it, get_chunk(*it));
+    }
 }
 
 Message_Descriptor *Incoming_Message::get_descriptor() {

@@ -19,11 +19,6 @@ lt_selector::lt_selector(int s, int nb):
 
     glob_log.log(3, "Creating new lt_selector with seed %d, max degree %d, number of blocks %d\n",
             seed, max_degree, num_blocks);
-
-    // Account for the message descriptor chunk, which effectively
-    //   makes chunk ids 1-indexed
-    block_list_cache.push_back(NULL);
-    block_list_sizes.push_back(0);
 }
 
 lt_selector::~lt_selector() {

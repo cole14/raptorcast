@@ -55,6 +55,8 @@ class Incoming_Message : public Decoder_Context {
         Decoder *get_decoder(msg_t algo);
         Decoder *decoder;
 
+        void print_lists();
+
 };
 
 class Decoder {

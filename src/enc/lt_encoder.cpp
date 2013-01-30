@@ -59,6 +59,12 @@ size_t LT_Encoder::get_chunk(unsigned char **dest, unsigned chunk_id) {
     int *selected_blocks;
     num_blocks = lts->select_blocks(chunk_id, &selected_blocks);
 
+    glob_log.log(2, "LT block list for chunk %u:", chunk_id);
+    for (int i = 0; i < num_blocks; i++) {
+        glob_log.log(2, " %d", selected_blocks[i]);
+    }
+    glob_log.log(2, "\n");
+
     // Now, turn those blocks into a chunk
     // Note that the data is padded, so we don't have to worry
     // about reading somewhere bad
