@@ -9,7 +9,8 @@
 #include "logger.h"
 #include "message_types.h"
 
-LT_Decoder::LT_Decoder() :
+LT_Decoder::LT_Decoder(Decoder_Context *ctx) :
+    Decoder(ctx),
     lts(NULL),
     chunks_seen(0),
     ready(false)
@@ -27,11 +28,11 @@ LT_Decoder::~LT_Decoder()
 void LT_Decoder::notify(unsigned chunk_id) {
     // First we need to do some setup: build the selector, etc.
     // Requirement: context has already recieved and processed the descriptor
+    Message_Descriptor *msg_desc = context->get_descriptor();
     if (msg_desc == NULL)
         error(-1, EIO, "Recieved lt chunk %u before reading header", chunk_id);
 
     if (lts == NULL) {
-        Message_Descriptor *msg_desc = context->get_descriptor();
         lts = new lt_selector(msg_desc->seed, msg_desc->total_blocks);
     }
 
@@ -47,8 +48,8 @@ void LT_Decoder::notify(unsigned chunk_id) {
     std::vector<unsigned>::iterator block_it;
     context->fill_block_list(&block_list);
 
-    for (block_it = block_list.begin; block_it != block_list.end(); it++) {
-        reduce(chunk, block_list[i]);
+    for (block_it = block_list.begin(); block_it != block_list.end(); block_it++) {
+        reduce(chunk, *block_it);
     }
 
     if (chunk->degree == 1) {
@@ -132,7 +133,7 @@ void LT_Decoder::add_block (Chunk *in_chunk){
     for (work_queue.push(in_chunk); !work_queue.empty(); work_queue.pop()) {
         // Extract the block from the finished chunk
         Chunk *work_chunk = work_queue.front();
-        unsigned char *block = chunk_to_block(chunk);
+        unsigned char *block = chunk_to_block(work_chunk);
         unsigned block_id = work_chunk->block_list[0];
         context->set_block(block, block_id);
 
@@ -141,7 +142,7 @@ void LT_Decoder::add_block (Chunk *in_chunk){
         // to the work queue.
         for (unsigned int i = 0; i < chunk_list.size(); i++) {
             Chunk *chunk = chunk_list[i];
-            reduce(chunk, block);
+            reduce(chunk, block_id);
             if (chunk->degree == 1)
                 work_queue.push(chunk);
         }
@@ -167,7 +168,11 @@ bool LT_Decoder::is_ready () {
         return false;
     } else if (ready) {
         return true;
-    } else if (decoded_blocks.size() >= msg_desc->total_blocks) {
+    }
+
+    std::vector<unsigned> decoded_blocks;
+    context->fill_block_list(&decoded_blocks);
+    if (decoded_blocks.size() >= msg_desc->total_blocks) {
         ready = true;
         glob_log.log(2, "Decoded lt message: %zu blocks in %d chunks (%.02f%% overhead)\n",
                 msg_desc->total_blocks, chunks_seen,

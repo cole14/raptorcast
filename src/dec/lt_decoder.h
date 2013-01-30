@@ -37,6 +37,7 @@ class LT_Decoder : public Decoder {
         lt_selector *lts;
 
         int chunks_seen;
+        int blocks_decoded;
         bool ready;
 };
 

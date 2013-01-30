@@ -178,10 +178,8 @@ Decoder *Incoming_Message::get_decoder(msg_t algo) {
             return new Traditional_Decoder((Decoder_Context *)this);
         case COOP:
             return new Cooperative_Decoder((Decoder_Context *)this);
-        /*
         case LT:
             return new LT_Decoder((Decoder_Context *)this);
-            */
         case RAPTOR:
             return NULL;  // Not yet implemented
         default:
