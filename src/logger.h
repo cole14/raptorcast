@@ -5,6 +5,7 @@
 #include <stddef.h>
 
 #include <mutex>
+#include <vector>
 
 class logger {
     public:
@@ -18,6 +19,8 @@ class logger {
         // Logging methods
         void log(int level, const char *str, ...) __attribute__((format(printf, 3, 4)));
         void dump_buf(int level, void *buf, size_t len);
+        //Assumes the vector is sorted.
+        void pretty_print_id_list(int level, std::vector< unsigned > &list);
 
         // Log level getter/setters
         int get_level();

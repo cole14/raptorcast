@@ -1,5 +1,6 @@
 #include <stddef.h>
 #include <string.h>
+#include <error.h>
 
 #include "decoder.h"
 #include "client_server_decoder.h"
@@ -118,6 +119,11 @@ unsigned char *Incoming_Message::get_message() {
 
 // Note: memory for the following two functions is OWNED BY THE CALLER
 void Incoming_Message::fill_block_list(std::vector<unsigned> *dest) {
+    if(dest == NULL)
+        error(-1, 0, "'dest' is NULL!");
+
+    dest->clear();
+
     typedef std::map<unsigned, unsigned char *>::iterator map_it;
     for (map_it it = blocks.begin(); it != blocks.end(); it++) {
         dest->push_back(it->first);
@@ -125,6 +131,11 @@ void Incoming_Message::fill_block_list(std::vector<unsigned> *dest) {
 }
 
 void Incoming_Message::fill_chunk_list(std::vector<unsigned> *dest) {
+    if(dest == NULL)
+        error(-1, 0, "'dest' is NULL!");
+
+    dest->clear();
+
     typedef std::map<unsigned, unsigned char *>::iterator map_it;
     for (map_it it = chunks.begin(); it != chunks.end(); it++) {
         dest->push_back(it->first);

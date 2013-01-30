@@ -236,6 +236,8 @@ void Client::run_cli() {
             printf("Sending file...\n");
             chan->broadcast(algorithm, file_contents, (size_t)siz);
 
+            free(file_contents);
+
         } else if (strcmp(line_buf, "debug-toggle") == 0 || strcmp(line_buf, "d") == 0) {
             printf("Debug mode is now %s\n", (chan->toggle_debug_mode()) ? "on" : "off");
 
@@ -255,7 +257,7 @@ void Client::run_cli() {
             while(true)
                 sleep(100);
         } else if (strcmp(line_buf, "message-history") == 0 || strcmp(line_buf, "m") == 0) {
-            printf("Not yet implemented. :-(\n");
+            chan->print_msgs(1);
         } else {
             printf("Invalid command: %s\n", line_buf);
         }
