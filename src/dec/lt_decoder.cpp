@@ -148,14 +148,14 @@ void LT_Decoder::add_block (Chunk *in_chunk){
                 chunk->degree = 0;
             }
         }
-        //clean_chunks();
     }
+    clean_chunks();
 }
 
 // Remove decoded chunks from our working list
 void LT_Decoder::clean_chunks () {
     for (unsigned i = 0; i < chunk_list.size(); i++) {
-        if (chunk_list[i]->degree == 1) {
+        if (chunk_list[i]->degree == 0) {
             Chunk *temp = chunk_list[i];
             chunk_list.erase(chunk_list.begin()+i);
             i--;
