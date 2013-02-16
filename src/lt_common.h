@@ -32,14 +32,14 @@ class lt_selector {
         std::uniform_int_distribution<int> *rtab_dist;
         std::uniform_int_distribution<int> *block_select_dist;
 
-        double delta;  // maximum allowable error(0.05)
-        double c;      // performance constant (0.2)
-        int k;      // number of blocks
-        double beta;         // normalization constant
-        int R;            // "ripple size", the number of chunks that
-                             //   ought to rely on exactly one block
-        int *robust_table;   // table to translate random numbers into a robust dist
-        size_t rtab_size;    // resolution of said table
+        double delta;       // maximum allowable error(0.05)
+        double c;           // performance constant (0.2)
+        int k;              // number of blocks
+        double beta;        // normalization constant
+        int R;              // "ripple size", the number of chunks that
+                            //   ought to rely on exactly one block
+        int *robust_table;  // table to translate random numbers into a robust dist
+        size_t rtab_size;   // number of entries in said table
 
         double ideal_dist(int i);
         double extra_dist(int i);
