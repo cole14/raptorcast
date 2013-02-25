@@ -86,6 +86,8 @@ class Broadcast_Channel {
         void notify_peers();
         // Add a peer to the list
         void add_peer(struct message *);
+        // Remove a peer from the list
+        void remove_peer(struct message *);
 
         // Get an id that is not currently in use within the peer set
         // Note that this is terrible and presents all sorts of race conditions
@@ -101,6 +103,8 @@ class Broadcast_Channel {
         void accept_connections();
         // Deal with a chunk of a message
         void handle_chunk(int client_sock, struct message *in_msg);
+        // Confirm receipt of a message
+        void confirm_message(struct message *in_msg);
         // Send a list of chunks to every peer in the group
         void forward(std::list< std::shared_ptr< struct message > > msg_list);
 
