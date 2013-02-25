@@ -1,9 +1,7 @@
 raptorcast
 ==========
 
-This is the repo for the O(N) reliable broadcast algorithm for the google coding competition.
+This is the repo for the bandwidth-O(N) reliable broadcast algorithm.
 
-The 'client' program will be a sort of file chatroom, where users will run the client, bootstrap their way into the broadcast group, then
-broadcast files, or store files broadcasted by the group into files into the current working directory.
-
+The 'client' program is chatroom of sorts which is used to test various broadcast algorithms with either user-input text or file contents.
 
