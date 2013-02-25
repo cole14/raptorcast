@@ -625,25 +625,17 @@ void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
     if (in_msg->cli_id == my_info->id)
         return;  // It's just a bump of one of our own messages
 
+    // Get a decoder for this message
     dec_id = (((uint64_t)in_msg->cli_id) << 32) | (uint64_t)in_msg->msg_id;
-
-    // Check if this message has already been completed
     if (finished_messages.find(dec_id) != finished_messages.end()) {
-        /*
-         * TODO (Dan 2/25/13)
+        /* TODO (Dan 2/25/13)
          * Make sure we forward messages to finished decoders.
          */
         return;
     }
 
-    // Get a decoder for this message
-    if(decoders.find(dec_id) == decoders.end()){
-        glob_log.log(2, "Constructing decoder for message %u\n", in_msg->msg_id);
-        decoder = new Incoming_Message(in_msg->type);
-        decoders[dec_id] = decoder;
-    } else {
-        glob_log.log(2, "Retrieving decoder for message %u\n", in_msg->msg_id);
-    }
+    if(decoders.find(dec_id) == decoders.end())
+        decoders[dec_id] = new Incoming_Message(in_msg->type);
     decoder = decoders[dec_id];
 
     // Add the chunk we just got
