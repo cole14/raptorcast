@@ -50,6 +50,9 @@ class Broadcast_Channel {
         // Notify peers that we're quitting, clean up connections, etc.
         void quit();
 
+        // Ping somebody (-1 for everybody, otherwise by client id)
+        unsigned ping (int peer_id);
+
         // Toggle the debug mode for this broadcast channel.
         bool toggle_debug_mode();
 
@@ -78,45 +81,63 @@ class Broadcast_Channel {
         std::map< unsigned int, std::pair< int, std::chrono::system_clock::time_point > > start_times;
 
     /* Private Functions */
-        // Contact a known host and get a list of all peers
-        void get_peer_list(std::string hostname, int port);
-        // Send a list of all peers to a new member
-        void send_peer_list(int client_sock, struct client_info *target);
-        // Tell the list of peers that we exist
-        void notify_peers();
-        // Add a peer to the list
-        void add_peer(struct message *);
-        // Remove a peer from the list
-        void remove_peer(struct message *);
-
+        /*
+         * Utility functions
+         */
         // Get an id that is not currently in use within the peer set
         // Note that this is terrible and presents all sorts of race conditions
         unsigned int get_unused_id();
         // Lookup a client, by id
         client_info *get_peer_by_id(unsigned int id);
 
-        // Wrapper func for start_server for the purpose of threadding
+        /*
+         * Basic networking, bootstrap and maintinance stuff
+         */
+        // Contact a known host and get a list of all peers
+        void get_peer_list(std::string hostname, int port);
+        // Tell the list of peers that we exist
+        void notify_peers();
+        // Add a peer to the list
+        void add_peer(struct message *);
+        // Remove a peer from the list
+        void remove_peer(struct client_info *);
+
+        // Put together a message containing the given data
+        void construct_message(msg_t type, struct message *dest, const void *src, size_t n);
+        // Create a tcp socket
+        int make_socket();
+
+        // Read a message from a tcp socket into 'msg'
+        ssize_t read_message(int sock, struct message *msg);
+        // Send a message over a tcp socket
+        ssize_t send_message(int sock, struct message *msg);
+
+        /*
+         * The server, and associated helper functions
+         */
+        // Threading wrappers
         static void *start_server(void *);
-        //
         static void *do_forward(void *);
+
         // Wait for and handle network requests from other peers
         void accept_connections();
+
+        // Send a list of all peers to a new member
+        void handle_join(int client_sock, struct message *in_msg);
+        // Respond to a ping request
+        void handle_ping(int client_sock, struct message *in_msg);
+        // Deal with a request to add a peer to the network
+        void handle_peer(int client_sock, struct message *in_msg);
+        // Deal with a quit request
+        void handle_quit(struct message *in_msg);
         // Deal with a chunk of a message
         void handle_chunk(int client_sock, struct message *in_msg);
+
         // Confirm receipt of a message
         void confirm_message(struct message *in_msg);
         // Send a list of chunks to every peer in the group
         void forward(std::list< std::shared_ptr< struct message > > msg_list);
 
-        // Put together a message containing the given data
-        void construct_message(msg_t type, struct message *dest, const void *src, size_t n);
-
-        // Create a tcp socket
-        int make_socket();
-        // Read a message from a tcp socket into 'msg'
-        ssize_t read_message(int sock, struct message *msg);
-        // Send a message over a tcp socket
-        ssize_t send_message(int sock, struct message *msg);
 };
 
 struct forward_event {

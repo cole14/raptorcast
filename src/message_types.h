@@ -10,6 +10,7 @@ enum msg_t {
     // Functional messages
     JOIN,   // Initial message sent to known host
     PEER,   // Tell about a peer (this or another)
+    PING,
     READY,
     QUIT,
     CONFIRM,

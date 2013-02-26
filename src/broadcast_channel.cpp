@@ -31,6 +31,8 @@ static const char * msg_t_to_str(msg_t type) {
             return "JOIN";
         case PEER:
             return "PEER";
+        case PING:
+            return "PING";
         case READY:
             return "READY";
         case QUIT:
@@ -418,38 +420,6 @@ void Broadcast_Channel::notify_peers() {
     }
 }
 
-/*
- * Send PEER messages containing the information about each client in the group_set.
- * This is part of the bootstrap process and includes/defines the target's
- * client id.
- */
-void Broadcast_Channel::send_peer_list(int sock, struct client_info *target) {
-    struct message out_msg;
-    struct client_info *peer;
-
-    // First, define the target's client id
-    target->id = get_unused_id();
-
-    // Construct the outgoing message out of the target's info
-    construct_message(PEER, &out_msg, target, sizeof(struct client_info));
-
-    // Send!
-    if (send_message(sock, &out_msg) != sizeof(out_msg))
-        error(-1, errno, "Could not send peer notification");
-
-    // Next, send the current list of peers
-    for (int i = 0; i < (int) group_set.size(); i++) {
-        peer =  group_set[i];
-        glob_log.log(3, "Sending info for peer %s.\n", cli_to_str(peer));
-
-        // Construct the outgoing message
-        construct_message(PEER, &out_msg, peer, sizeof(struct client_info));
-
-        // Send!
-        if (send_message(sock, &out_msg) != sizeof(out_msg))
-            error(-1, errno, "Could not send peer notification");
-    }
-}
 
 void Broadcast_Channel::add_peer(struct message *in_msg) {
     //Sanity check
@@ -467,20 +437,9 @@ void Broadcast_Channel::add_peer(struct message *in_msg) {
     glob_log.log(3, "received peer request! Peer %s\n", cli_to_str(peer_info));
 }
 
-void Broadcast_Channel::remove_peer(struct message *in_msg) {
-    //Sanity check
-    if (in_msg->type != QUIT)
-        error(-1, EIO, "Tried to add peer from non-peer message");
 
-    struct client_info *peer_info = (struct client_info *) in_msg->data;
-    glob_log.log(3, "received quit message from %s\n", cli_to_str(peer_info));
-    if (peer_info->id == my_info->id) {
-        // Shutdown message from the CLI thread
-        glob_log.log(3, "Shutting down receive thread\n");
-        connected = false;
-        return;
-    }
-
+// Note: this is NOT thread-safe.  Don't quit two peers at once.
+void Broadcast_Channel::remove_peer(struct client_info *peer_info) {
     int index;
     for (index = 0; index < (int) group_set.size(); index++) {
         if (group_set[index]->id == peer_info->id)
@@ -524,7 +483,7 @@ void *Broadcast_Channel::start_server(void *args) {
 //Server function to handle incoming messages
 void Broadcast_Channel::accept_connections() {
     int client_sock;
-    struct message in_msg, out_msg;
+    struct message in_msg;
     struct sockaddr_in client_addr = sockaddr_in();
     socklen_t client_len = socklen_t();
     //time vars
@@ -555,24 +514,22 @@ void Broadcast_Channel::accept_connections() {
         if (read_message(client_sock, &in_msg) < 0)
             error(-1, errno, "Could not receive client message");
 
+        glob_log.log(3, "Handling %s message\n", msg_t_to_str(in_msg.type));
         switch (in_msg.type) {
             case JOIN :
-                send_peer_list(client_sock, (struct client_info *)&in_msg.data);
+                handle_join(client_sock, &in_msg);
                 break;
 
             case PEER:
-                // Add the new peer to the group
-                add_peer(&in_msg);
+                handle_peer(client_sock, &in_msg);
+                break;
 
-                // Let them know we're ready to go
-                construct_message(READY, &out_msg, NULL, 0);
-                if (send_message(client_sock, &out_msg) != sizeof(out_msg))
-                    error(-1, errno, "Could not send ready reply");
-
+            case PING:
+                handle_ping(client_sock, &in_msg);
                 break;
 
             case QUIT:
-                remove_peer(&in_msg);
+                handle_quit(&in_msg);
                 break;
 
             case CONFIRM:
@@ -614,6 +571,84 @@ void Broadcast_Channel::accept_connections() {
 
     // Close down the server
     close(server_sock);
+}
+
+/*
+ * Send PEER messages containing the information about each client in the group_set.
+ * This is part of the bootstrap process and includes/defines the target's
+ * client id.
+ */
+void Broadcast_Channel::handle_join(int sock, struct message *in_msg) {
+    struct client_info *target = (struct client_info *)&in_msg->data;
+    struct message out_msg;
+    struct client_info *peer;
+
+    // First, define the target's client id
+    target->id = get_unused_id();
+
+    // Construct the outgoing message out of the target's info
+    construct_message(PEER, &out_msg, target, sizeof(struct client_info));
+
+    // Send!
+    if (send_message(sock, &out_msg) != sizeof(out_msg))
+        error(-1, errno, "Could not send peer notification");
+
+    // Next, send the current list of peers
+    for (int i = 0; i < (int) group_set.size(); i++) {
+        peer =  group_set[i];
+        glob_log.log(3, "Sending info for peer %s.\n", cli_to_str(peer));
+
+        // Construct the outgoing message
+        construct_message(PEER, &out_msg, peer, sizeof(struct client_info));
+
+        // Send!
+        if (send_message(sock, &out_msg) != sizeof(out_msg))
+            error(-1, errno, "Could not send peer notification");
+    }
+}
+
+/*
+ * Handlers for different message types
+ */
+void Broadcast_Channel::handle_ping(int client_sock, struct message *in_msg) {
+    struct message out_msg;
+    // Construct the outgoing message
+    construct_message(PING, &out_msg, my_info, sizeof(struct client_info));
+
+    // Send
+    if (send_message(client_sock, &out_msg) != sizeof(out_msg))
+        error(-1, EIO, "Trouble returning PING");
+}
+
+void Broadcast_Channel::handle_peer(int client_sock, struct message *in_msg) {
+    struct message out_msg;
+
+    // Add the new peer to the group
+    add_peer(in_msg);
+
+    // Let them know we're ready to go
+    construct_message(READY, &out_msg, NULL, 0);
+    if (send_message(client_sock, &out_msg) != sizeof(out_msg))
+        error(-1, errno, "Could not send ready reply");
+}
+
+void Broadcast_Channel::handle_quit(struct message *in_msg) {
+    //Sanity check
+    if (in_msg->type != QUIT) {
+        error(-1, EIO, "Expected QUIT message, but got %s",
+                msg_t_to_str(in_msg->type));
+    }
+
+    struct client_info *peer_info = (struct client_info *) in_msg->data;
+    glob_log.log(3, "received quit message from %s\n", cli_to_str(peer_info));
+    if (peer_info->id == my_info->id) {
+        // Shutdown message from the CLI thread
+        glob_log.log(3, "Shutting down receive thread\n");
+        connected = false;
+        return;
+    }
+
+    return remove_peer(peer_info);
 }
 
 void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
@@ -865,6 +900,83 @@ void Broadcast_Channel::broadcast(msg_t algo, unsigned char *data, size_t data_l
         delete chunks;
     }
     delete msg_handler;
+}
+
+/*
+ * Verify connecivity with a specified peer, and purge them from
+ * the list if they're unavailable.
+ * Negative inputs -> ping all peers
+ * Returns the number of peers that were removed from the list
+ */
+unsigned Broadcast_Channel::ping(int in_peer_id) {
+    unsigned index;
+    // Deal with a ping-all recursively
+    if (in_peer_id < 0) {
+        unsigned removed = 0;
+        for (index = 0; index < group_set.size(); index++) {
+            unsigned result = ping(group_set[index]->id);
+            index -= result;
+            removed += result;
+        }
+        return removed;
+    }
+
+    // Find the target peer
+    unsigned peer_id = (unsigned) in_peer_id;
+    for (index = 0; index < group_set.size(); index++) {
+        if (group_set[index]->id == peer_id)
+            break;
+    }
+    if (index >= group_set.size()) {
+        // Tried to ping a peer that doesn't exist! LOL!
+        return 0;
+    }
+
+    struct client_info *peer;
+    struct message out_msg, in_msg;
+    int sock;
+
+    peer = group_set[index];
+    glob_log.log(1, "Pinging peer %s.\n", cli_to_str(peer));
+
+    // Setup the socket
+    sock = make_socket();
+
+    // Open socket
+    if (connect(sock, (struct sockaddr *) &peer->ip, sizeof(peer->ip)) < 0) {
+        glob_log.log(1, "Could not connect to peer\n");
+        remove_peer(peer);
+        return 1;
+    }
+
+    // Construct the outgoing message
+    construct_message(PING, &out_msg, my_info, sizeof(struct client_info));
+
+    // Send
+    if (send_message(sock, &out_msg) != sizeof(out_msg)) {
+        glob_log.log(1, "Could not ping peer\n");
+        remove_peer(peer);
+        return 1;
+    }
+
+    // Get reply
+    if (read_message(sock, &in_msg) < 0) {
+        glob_log.log(1, "Could not receive peer response\n");
+        remove_peer(peer);
+        return 1;
+    }
+    if (in_msg.type != PING) {
+        glob_log.log(1, "received bad peer response message type\n");
+        remove_peer(peer);
+        return 1;
+    }
+
+    // Close socket - if this fails, we've probably got bigger problems than
+    // a bad peer, so we just barf.
+    if (close(sock) != 0)
+        error(-1, errno, "Error closing peer socket");
+
+    return 0;
 }
 
 void Broadcast_Channel::quit() {
