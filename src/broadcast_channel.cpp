@@ -803,9 +803,18 @@ void *Broadcast_Channel::do_forward(void *arg){
         }
 
         out_msg->ttl = 0;  // We don't want people to rebroadcast rebroadcasts
-        if (fe->this_ptr->send_message(fe->sock, out_msg) != sizeof(struct message))
+        if (fe->this_ptr->send_message(fe->sock, out_msg) != sizeof(struct message)) {
+            /* XXX (Dan 2/27/13):
+             * This is the location for issue #26
+             */
+            glob_log.log(1, "Had trouble forwarding a transmission: %s\n", strerror(errno));
+            fe->this_ptr->ping(-1);
+            break;
+            /*
             error(-1, errno, "Could not forward transmission to peer %u",
                     out_msg->cli_id);
+                    */
+        }
     }
 
     // Close socket
@@ -948,7 +957,7 @@ unsigned Broadcast_Channel::ping(int in_peer_id) {
 
     // Open socket
     if (connect(sock, (struct sockaddr *) &peer->ip, sizeof(peer->ip)) < 0) {
-        glob_log.log(1, "Could not connect to peer\n");
+        glob_log.log(1, "Could not connect to peer: %s\n", strerror(errno));
         remove_peer(peer);
         return 1;
     }
@@ -958,19 +967,19 @@ unsigned Broadcast_Channel::ping(int in_peer_id) {
 
     // Send
     if (send_message(sock, &out_msg) != sizeof(out_msg)) {
-        glob_log.log(1, "Could not ping peer\n");
+        glob_log.log(1, "Could not ping peer: %s\n", strerror(errno));
         remove_peer(peer);
         return 1;
     }
 
     // Get reply
     if (read_message(sock, &in_msg) < 0) {
-        glob_log.log(1, "Could not receive peer response\n");
+        glob_log.log(1, "Could not receive peer response: %s\n", strerror(errno));
         remove_peer(peer);
         return 1;
     }
     if (in_msg.type != PING) {
-        glob_log.log(1, "received bad peer response message type\n");
+        glob_log.log(1, "received bad peer response message type: %s\n", strerror(errno));
         remove_peer(peer);
         return 1;
     }
