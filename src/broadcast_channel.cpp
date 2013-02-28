@@ -804,7 +804,8 @@ void *Broadcast_Channel::do_forward(void *arg){
 
         out_msg->ttl = 0;  // We don't want people to rebroadcast rebroadcasts
         if (fe->this_ptr->send_message(fe->sock, out_msg) != sizeof(struct message))
-            error(-1, errno, "Could not forward transmission");
+            error(-1, errno, "Could not forward transmission to peer %u",
+                    out_msg->cli_id);
     }
 
     // Close socket

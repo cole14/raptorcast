@@ -26,6 +26,7 @@ LT_Decoder::~LT_Decoder()
 }
 
 void LT_Decoder::notify(unsigned chunk_id) {
+    chunks_seen++;
     // First we need to do some setup: build the selector, etc.
     // Requirement: context has already recieved and processed the descriptor
     Message_Descriptor *msg_desc = context->get_descriptor();
@@ -42,14 +43,14 @@ void LT_Decoder::notify(unsigned chunk_id) {
     chunk->id = chunk_id;
     chunk->data = context->get_chunk(chunk_id);
     build_block_list(chunk);
-    chunks_seen++;
 
-    std::vector<unsigned> block_list;
-    std::vector<unsigned>::iterator block_it;
-    context->fill_block_list(&block_list);
+    // dblock = decoded block, cblock = chunk block
+    std::vector<unsigned> dblock_list;
+    std::vector<unsigned>::iterator dblock_it, cblock_it;
+    context->fill_block_list(&dblock_list);
 
-    for (block_it = block_list.begin(); block_it != block_list.end(); block_it++) {
-        reduce(chunk, *block_it);
+    for (dblock_it = dblock_list.begin(); dblock_it != dblock_list.end(); dblock_it++) {
+        reduce(chunk, *dblock_it);
     }
 
     if (chunk->degree == 1) {
@@ -59,6 +60,7 @@ void LT_Decoder::notify(unsigned chunk_id) {
         chunk_list.push_back(chunk);
     }
 }
+
 
 /*
  * Get the list of blocks for this chunk from the selector
@@ -130,12 +132,15 @@ unsigned char *LT_Decoder::chunk_to_block(Chunk *chunk) {
  *   any.  Note that if it does, we will need to iterate them as well.
  */
 void LT_Decoder::add_block (Chunk *in_chunk){
+    // Ignore if it reduces to a block we've already seen
+    if (context->get_block(in_chunk->block_list[0]) != NULL)
+        return;
     std::queue< Chunk * > work_queue;
     for (work_queue.push(in_chunk); !work_queue.empty(); work_queue.pop()) {
         // Extract the block from the finished chunk
         Chunk *work_chunk = work_queue.front();
-        unsigned char *block = chunk_to_block(work_chunk);
         unsigned block_id = work_chunk->block_list[0];
+        unsigned char *block = chunk_to_block(work_chunk);
         context->set_block(block, block_id);
 
         // Check all remaining chunks, and if they can be reduced
@@ -145,6 +150,9 @@ void LT_Decoder::add_block (Chunk *in_chunk){
             Chunk *chunk = chunk_list[i];
             reduce(chunk, block_id);
             if (chunk->degree == 1) {
+                // Ignore if it reduces to a block we've already seen
+                if (context->get_block(chunk->block_list[0]) != NULL)
+                    continue;
                 work_queue.push(chunk);
                 chunk->degree = 0;
             }
