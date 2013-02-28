@@ -190,7 +190,9 @@ void Client::run_cli() {
             break;
 
         } else if (strcmp(line_buf, "help") == 0 || strcmp(line_buf, "h") == 0) {
-            printf("Commands: send [t]ext, send [f]ile, [p]eers, ping [id], [m]essage-history, [d]ebug-toggle, [l]og-level, [s]pin, [z]ombify, [q]uit, [h]elp\n");
+            printf("Commands: send [t]ext, send [f]ile, [p]eers, ping [id], "
+                    "[m]essage-history, node [d]own, [l]og-level, [s]pin, "
+                    "[z]ombify, [q]uit, [h]elp\n");
 
         } else if (strcmp(line_buf, "send text") == 0 || strcmp(line_buf, "t") == 0) {
             algorithm = get_alg();
@@ -238,9 +240,6 @@ void Client::run_cli() {
 
             free(file_contents);
 
-        } else if (strcmp(line_buf, "debug-toggle") == 0 || strcmp(line_buf, "d") == 0) {
-            printf("Debug mode is now %s\n", (chan->toggle_debug_mode()) ? "on" : "off");
-
         } else if (strcmp(line_buf, "log-level") == 0 || strcmp(line_buf, "l") == 0) {
             printf("Input new log level [1=quiet, 2=chatty, 3=verbose]: ");
             read_stripped_line();
@@ -271,6 +270,9 @@ void Client::run_cli() {
             }
 
             chan->ping(ping_target);
+
+        } else if (strcmp(line_buf, "down") == 0 || strcmp(line_buf, "d") == 0) {
+            printf("Node is now %s\n", chan->toggle_node_down() ? "down" : "up");
 
         } else {
             printf("Invalid command: %s\n", line_buf);

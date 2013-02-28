@@ -107,7 +107,7 @@ Broadcast_Channel::Broadcast_Channel(std::string name, std::string port, Channel
 ,connected(false)
 ,listener(lstnr)
 ,msg_counter(0)
-,debug_mode(false)
+,down_mode(false)
 ,start_times()
 {
     //Allocate the client_info struct
@@ -164,8 +164,8 @@ client_info *Broadcast_Channel::get_peer_by_id(unsigned int id) {
 }
 
 //Flip the value of debug_mode
-bool Broadcast_Channel::toggle_debug_mode(){
-    return (debug_mode = !debug_mode);
+bool Broadcast_Channel::toggle_node_down(){
+    return (down_mode = !down_mode);
 }
 
 //Set up and return a new unconnected socket with the proper options
@@ -514,7 +514,7 @@ void Broadcast_Channel::accept_connections() {
         if (read_message(client_sock, &in_msg) < 0)
             error(-1, errno, "Could not receive client message");
 
-        glob_log.log(3, "Handling %s message\n", msg_t_to_str(in_msg.type));
+        glob_log.log(2, "Handling %s message\n", msg_t_to_str(in_msg.type));
         switch (in_msg.type) {
             case JOIN :
                 handle_join(client_sock, &in_msg);
@@ -552,7 +552,10 @@ void Broadcast_Channel::accept_connections() {
             case TRAD:
             case COOP:
             case LT:
-                handle_chunk(client_sock, &in_msg);
+                if (!down_mode)
+                    handle_chunk(client_sock, &in_msg);
+                else
+                    glob_log.log(2, "Ignoring message because node is down\n");
 
                 break;
             case RAPTOR:

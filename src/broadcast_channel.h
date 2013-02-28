@@ -53,8 +53,8 @@ class Broadcast_Channel {
         // Ping somebody (-1 for everybody, otherwise by client id)
         unsigned ping (int peer_id);
 
-        // Toggle the debug mode for this broadcast channel.
-        bool toggle_debug_mode();
+        // Simulate a node going down
+        bool toggle_node_down();
 
     private:
     /* Private Members */
@@ -75,8 +75,9 @@ class Broadcast_Channel {
         Channel_Listener *listener;
         // The monotonically increasing unique message id counter for this sender
         unsigned long msg_counter;
-        // Flag to specify whether to artifically crash at specified points
-        bool debug_mode;
+        // When true, will act dead (receiving messages but not forwarding)
+        bool down_mode;
+
         // Timers for message broadcast completion timing.
         std::map< unsigned int, std::pair< int, std::chrono::system_clock::time_point > > start_times;
 
