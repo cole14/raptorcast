@@ -53,7 +53,7 @@ vector<pair<int, unsigned char *> > *Outgoing_Message::get_chunks(unsigned peer)
 
     // Add the message descriptor first
     unsigned char *desc = (unsigned char *)encoder->get_descriptor();
-    chunks->push_back(make_pair(-1, desc));
+    chunks->push_back(make_pair(MSG_DESC, desc));
 
     // Ask the encoder which chunks to send to this peer
     vector<unsigned> *chunk_list = encoder->get_chunk_list(peer);

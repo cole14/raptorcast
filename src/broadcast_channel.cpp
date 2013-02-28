@@ -667,7 +667,7 @@ void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
     dec_id = (((uint64_t)in_msg->cli_id) << 32) | (uint64_t)in_msg->msg_id;
     if (finished_messages.find(dec_id) != finished_messages.end()) {
         /* TODO (Dan 2/25/13)
-         * Make sure we forward messages to finished decoders.
+         * Make sure we forward messages for finished decoders.
          */
         return;
     }
@@ -676,32 +676,27 @@ void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
         decoders[dec_id] = new Incoming_Message(in_msg->type);
     decoder = decoders[dec_id];
 
-    // Add the chunk we just got
-    decoder->add_chunk(in_msg->data, in_msg->data_len, in_msg->chunk_id);
-    glob_log.dump_buf(3, in_msg->data, in_msg->data_len);
-
-    // Keep track of the messages we've gotten, so we can forward them along
-    msg = new struct message();
-    memcpy(msg, in_msg, sizeof(struct message));
-    msg_list.push_back(std::shared_ptr<struct message>(msg));
-
-    glob_log.log(3, "received %s message\n", msg_t_to_str(in_msg->type));
-
     // Keep reading chunks and adding them until the bcast is done
-    while (in_msg->data_len != 0) {
-        if (read_message(client_sock, in_msg) < 0)
-            error(-1, errno, "Could not receive client message");
-
+    do {
         msg = new struct message();
         memcpy(msg, in_msg, sizeof(struct message));
         msg_list.push_back(std::shared_ptr<struct message>(msg));
 
         glob_log.log(2, "Recieved chunk %u of msg %u from peer %u\n",
                 in_msg->chunk_id, in_msg->msg_id, in_msg->cli_id);
+        glob_log.dump_buf(3, in_msg->data, in_msg->data_len);
 
         decoder->add_chunk(in_msg->data, in_msg->data_len, in_msg->chunk_id);
-        glob_log.dump_buf(3, in_msg->data, in_msg->data_len);
-    }
+
+        // Read the next chunk
+        if (read_message(client_sock, in_msg) < 0)
+            error(-1, errno, "Could not receive client message");
+    } while (in_msg->chunk_id != MSG_END);
+
+    // Add the terminator message to the list (but not the decoder)
+    msg = new struct message();
+    memcpy(msg, in_msg, sizeof(struct message));
+    msg_list.push_back(std::shared_ptr<struct message>(msg));
 
     // Forward the message on to the other peers
     if (decoder->should_forward() && in_msg->ttl > 0) {
@@ -897,7 +892,7 @@ void Broadcast_Channel::broadcast(msg_t algo, unsigned char *data, size_t data_l
         out_msg.type = algo;
         out_msg.cli_id = my_info->id;
         out_msg.msg_id = msg_counter;//we don't want a new msgid for each chunk
-        out_msg.chunk_id = 0;
+        out_msg.chunk_id = MSG_END;
         out_msg.ttl = 1;
         out_msg.data_len = 0;
         memset(&out_msg.data, 0, PACKET_LEN);

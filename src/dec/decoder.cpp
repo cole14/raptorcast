@@ -36,8 +36,13 @@ void Incoming_Message::add_chunk(unsigned char *data, size_t len, int chunk_id) 
         return;
     }
 
+    // Discard message terminators
+    if (chunk_id == MSG_END) {
+        return;
+    }
+
     // Deal with the descriptor
-    if (chunk_id == -1) {
+    if (chunk_id == MSG_DESC) {
         if (descriptor != NULL) {
             // Already done, don't worry about it
             return;

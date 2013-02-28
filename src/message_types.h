@@ -22,11 +22,15 @@ enum msg_t {
     RAPTOR
 };
 
+// Non-content chunk ids
+#define MSG_END -1
+#define MSG_DESC -2
+
 struct message {
     msg_t type;
     unsigned int cli_id;
     unsigned int msg_id;
-    int chunk_id;       // descriptor chunk is always -1
+    int chunk_id;
     unsigned int ttl;
     size_t data_len;
     unsigned char data[PACKET_LEN];
