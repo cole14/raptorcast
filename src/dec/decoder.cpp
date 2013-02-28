@@ -211,4 +211,3 @@ Decoder *Incoming_Message::get_decoder(msg_t algo) {
     }
     return NULL;
 }
-
