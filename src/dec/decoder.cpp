@@ -26,7 +26,7 @@ Incoming_Message::~Incoming_Message() {
         free(it->second);
     }
 
-    free(decoder);
+    delete decoder;
     free(descriptor);
 }
 
