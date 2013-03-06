@@ -1,0 +1,21 @@
+A Linear-Bandwidth Reliable Broadcast Algorithm with 50% Fault
+Tolerance: For a given set of N users, if any one user wants
+to broadcast to the all other users, the traditional reliable
+broadcast algorithm would start with the broadcaster sending
+the data to each member of the set, and upon first reception,
+each member of the set re-transmits the data to each user in
+the set. This allows total fault tolerance, meaning that if
+any one correct process delivers the message, then every
+correct process will. The drawback is that this traditional
+algorithm has a total bandwidth complexity of Θ(FN^2) where F
+is the file size and N is the number of users in the set -
+that's Θ(FN) per user, far too much if you ask us! Our data
+broadcast algorithm takes advantage of the interchangeability
+of the generated symbols of Raptor Codes to achieve Θ(FN)
+total bandwidth complexity (Θ(F) per user) while maintaining
+partial fault tolerance. This algorithm could allow
+organizations to replicate mission-critical data across a
+large number of geographically distributed backup locations
+for maximum information assurance, without sacrificing on-line
+system performance. It also lends itself to large-scale
+media distribution applications.
