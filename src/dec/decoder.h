@@ -6,6 +6,7 @@
 
 #include "enc/encoder.h"
 #include "message_types.h"
+#include "logger.h"
 
 
 class Decoder;
@@ -25,7 +26,7 @@ class Decoder_Context {
 class Incoming_Message : public Decoder_Context {
     public :
         // Destructor
-        ~Incoming_Message();
+        virtual ~Incoming_Message();
 
         // B_Chan interface
         Incoming_Message(msg_t algo);
@@ -62,7 +63,7 @@ class Incoming_Message : public Decoder_Context {
 class Decoder {
     public:
         Decoder(Decoder_Context *ctx) : context(ctx) { }
-        virtual ~Decoder() {}
+        virtual ~Decoder() { }
         virtual void notify (unsigned chunk_id) = 0;
         virtual bool is_ready () = 0;
         virtual bool should_forward() = 0;

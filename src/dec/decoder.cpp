@@ -26,7 +26,7 @@ Incoming_Message::~Incoming_Message() {
         free(it->second);
     }
 
-    free(decoder);
+    delete decoder;
     free(descriptor);
 }
 
@@ -211,4 +211,3 @@ Decoder *Incoming_Message::get_decoder(msg_t algo) {
     }
     return NULL;
 }
-

@@ -21,8 +21,9 @@ LT_Decoder::~LT_Decoder()
     for (unsigned i = 0; i < chunk_list.size(); i++)
         delete chunk_list[i];
 
-    if (lts)
+    if (lts) {
         delete lts;
+    }
 }
 
 void LT_Decoder::notify(unsigned chunk_id) {

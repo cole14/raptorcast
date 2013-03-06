@@ -54,6 +54,22 @@ static const char * msg_t_to_str(msg_t type) {
     }
 }
 
+bool should_forward(msg_t algo) {
+    switch (algo) {
+        case CLIENT_SERVER :
+            return false;
+
+        case TRAD :
+        case COOP:
+        case LT:
+            return true;
+
+        case RAPTOR:
+        default:
+            return false;
+    }
+}
+
 static const char *cli_to_str(struct client_info *cli) {
     const int max_size = 256;
     static char str[max_size];
@@ -533,6 +549,9 @@ void Broadcast_Channel::accept_connections() {
                 break;
 
             case CONFIRM:
+                /* TODO (Dan 2/28/13)
+                 * Can we move this into a seperate function?
+                 */
                 memcpy(&confirm_msgid, in_msg.data, sizeof(confirm_msgid));
                 memcpy(&confirm_type, in_msg.data + sizeof(confirm_msgid), sizeof(confirm_type));
 
@@ -666,27 +685,28 @@ void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
     // Get a decoder for this message
     dec_id = (((uint64_t)in_msg->cli_id) << 32) | (uint64_t)in_msg->msg_id;
     if (finished_messages.find(dec_id) != finished_messages.end()) {
-        /* TODO (Dan 2/25/13)
-         * Make sure we forward messages for finished decoders.
-         */
-        return;
+        // We can't just return, because we still need to forward messages along.
+        decoder = NULL;
+
+    } else {
+        if(decoders.find(dec_id) == decoders.end())
+            decoders[dec_id] = new Incoming_Message(in_msg->type);
+        decoder = decoders[dec_id];
     }
 
-    if(decoders.find(dec_id) == decoders.end())
-        decoders[dec_id] = new Incoming_Message(in_msg->type);
-    decoder = decoders[dec_id];
-
     // Keep reading chunks and adding them until the bcast is done
+    // Note: do while because we start with a chunk already
     do {
         msg = new struct message();
         memcpy(msg, in_msg, sizeof(struct message));
         msg_list.push_back(std::shared_ptr<struct message>(msg));
 
-        glob_log.log(2, "Recieved chunk %u of msg %u from peer %u\n",
+        glob_log.log(2, "Received chunk %d of msg %u from peer %u\n",
                 in_msg->chunk_id, in_msg->msg_id, in_msg->cli_id);
         glob_log.dump_buf(3, in_msg->data, in_msg->data_len);
 
-        decoder->add_chunk(in_msg->data, in_msg->data_len, in_msg->chunk_id);
+        if (decoder)
+            decoder->add_chunk(in_msg->data, in_msg->data_len, in_msg->chunk_id);
 
         // Read the next chunk
         if (read_message(client_sock, in_msg) < 0)
@@ -699,12 +719,11 @@ void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
     msg_list.push_back(std::shared_ptr<struct message>(msg));
 
     // Forward the message on to the other peers
-    if (decoder->should_forward() && in_msg->ttl > 0) {
+    if (should_forward(in_msg->type) && in_msg->ttl > 0)
         forward(msg_list);
-    }
 
     // Print the message and clean up
-    if(decoder->is_ready()){
+    if(decoder && decoder->is_ready()){
         // Deliver the message to the application
         listener->receive(decoder->get_message(), decoder->get_len());
 
