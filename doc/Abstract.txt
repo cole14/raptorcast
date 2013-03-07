@@ -1,15 +1,14 @@
-Dan's new version:
 Many modern computing applications, such as data warehousing,
-distributed computing and content streaming, require large
+distributed computing, and content streaming, require large
 quantities of information to be broadcast rapidly over a
 network.  Unfortunately these transmissions are not always
 reliable, as hardware and software failures can cause messages
-to go astray.  In situations where fault tolerance is
+to be lost or corrupted.  In situations where fault tolerance is
 essential, traditional broadcast algorithms guarantee
-correctness by retransmitting data between all computers in
-the network (peers).  This method ensures that the message
-will be delivered regardless of the number of peer failures,
-with the cost that total data transmitted grows as the square
+correctness by retransmitting data between all computers (peers)
+in the network.  This method ensures that the message
+will be delivered regardless of the number of peer failures
+but at the cost that the total data transmitted grows as the square
 of the number of peers.  This constraint, coupled with the
 high cost of network bandwidth relative to processing power or
 onsite storage, renders many potential applications
@@ -20,34 +19,7 @@ usage.  In particular, by relaxing the strict fault tolerance
 requirements of traditional algorithms, we can keep bandwidth
 use linear in the total number of peers, while ensuring
 correctness up to an arbitrary number of peer failures.  This
-property, known as “fault resilience”, is sufficient for many
-internet applications, so we write a sentence of conclusion.
-
-This algorithm could allow organizations to replicate
-mission-critical data across a large number of geographically
-distributed backup locations for maximum information
-assurance, without sacrificing on-line system performance.
-
-
-GCC:
-A Linear-Bandwidth Reliable Broadcast Algorithm with 50% Fault
-Tolerance: For a given set of N users, if any one user wants
-to broadcast to the all other users, the traditional reliable
-broadcast algorithm would start with the broadcaster sending
-the data to each member of the set, and upon first reception,
-each member of the set re-transmits the data to each user in
-the set. This allows total fault tolerance, meaning that if
-any one correct process delivers the message, then every
-correct process will. The drawback is that this traditional
-algorithm has a total bandwidth complexity of Θ(FN^2) where F
-is the file size and N is the number of users in the set -
-that's Θ(FN) per user, far too much if you ask us! Our data
-broadcast algorithm takes advantage of the interchangeability
-of the generated symbols of Raptor Codes to achieve Θ(FN)
-total bandwidth complexity (Θ(F) per user) while maintaining
-partial fault tolerance. This algorithm could allow
-organizations to replicate mission-critical data across a
-large number of geographically distributed backup locations
-for maximum information assurance, without sacrificing on-line
-system performance. It also lends itself to large-scale
-media distribution applications.
+property, known as fault resilience is sufficient for many
+internet applications, and could allow for organizations to replicate
+mission-critical data across a large number of computers
+for maximal information assurance, without sacrificing on-line system performance.
