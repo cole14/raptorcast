@@ -19,7 +19,7 @@ usage.  In particular, by relaxing the strict fault tolerance
 requirements of traditional algorithms, we can keep bandwidth
 use linear in the total number of peers, while ensuring
 correctness up to an arbitrary number of peer failures.  This
-property, known as fault resilience is sufficient for many
-internet applications, and could allow for organizations to replicate
+property, known as fault resilience, is sufficient for many
+internet applications, and could allow organizations to replicate
 mission-critical data across a large number of computers
-for maximal information assurance, without sacrificing on-line system performance.
+for maximal information assurance without sacrificing on-line system performance.
