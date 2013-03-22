@@ -10,8 +10,7 @@ CFLAGS=-g -Wall -Werror -std=c++0x
 LDFLAGS=-lpthread -pthread -lrt
 
 #List of source files 
-SRC_FILES=	client.cpp
-SRC_FILES+=	broadcast_channel.cpp
+SRC_FILES=	broadcast_channel.cpp
 SRC_FILES+=	channel_listener.cpp
 SRC_FILES+=	enc/client_server_encoder.cpp dec/client_server_decoder.cpp 
 SRC_FILES+= enc/cooperative_encoder.cpp	
@@ -24,11 +23,14 @@ OBJS = $(patsubst %.cpp, $(BINDIR)/%.o, $(SRC_FILES))
 #Client executable
 CLIENT=$(BINDIR)/client
 LT_TEST=$(BINDIR)/lt_test
+TEST_CLIENT=$(BINDIR)/test_client
 
 #Default Rule
 all: $(CLIENT)
 
 lt_test: $(LT_TEST)
+
+test_client: $(TEST_CLIENT)
 
 #Rule to make the generated file directory
 $(BINDIR):
@@ -41,7 +43,7 @@ $(BINDIR)/%.o: $(SRCDIR)/%.cpp | $(BINDIR)
 	$(CC) -c -I$(SRCDIR) $(CFLAGS) $< -o $@
 
 #Rule to make final executable
-$(CLIENT): $(OBJS)
+$(CLIENT): $(BINDIR)/client.o $(OBJS)
 	$(CC) -I$(SRCDIR) $(CFLAGS) $^ $(LDFLAGS) -o $@
 
 
@@ -51,6 +53,13 @@ bin/lt_test.o: src/lt_test.cpp | $(BINDIR)
 
 $(LT_TEST): bin/logger.o bin/lt_test.o bin/lt_selector.o bin/lt_encoder.o bin/lt_decoder.o
 	$(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
+
+# Rules for test_client
+bin/test_client.o: src/test_client.cpp | $(BINDIR)
+	$(CC) -I$(SRCDIR) -c $(CFLAGS) $< -o $@
+
+$(TEST_CLIENT): bin/test_client.o $(OBJS)
+	$(CC) -I$(SRCDIR) $(CFLAGS) $^ $(LDFLAGS) -o $@
 
 #Rule to clean the build
 clean:

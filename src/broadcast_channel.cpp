@@ -137,8 +137,9 @@ Broadcast_Channel::Broadcast_Channel(std::string name, std::string port, Channel
 
     //Set the client info ip
     struct addrinfo *local_h;
-    if(0 != getaddrinfo(local_h_name, port.c_str(), NULL, &local_h)){
-        error(-1, h_errno, "Unable to get localhost host information");
+    int err = 0;
+    if(0 != (err = getaddrinfo(local_h_name, port.c_str(), NULL, &local_h))){
+        error(-1, 0, "Unable to get localhost host information: %s", gai_strerror(err));
     }
     my_info->ip = *((sockaddr_in *)local_h->ai_addr);
 
