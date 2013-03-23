@@ -6,7 +6,7 @@
 
 class TestClient : public Channel_Listener {
     public:
-        TestClient(const char *config_filename);
+        TestClient(std::string myport, int groupport, bool master);
         ~TestClient(void);
 
         void receive(unsigned char *buf, size_t buf_len);
@@ -14,6 +14,8 @@ class TestClient : public Channel_Listener {
     private:
         Broadcast_Channel *chan;
         std::string name;
+        int groupport;
+        bool master;
 };
 
 #endif /* __TEST_CLIENT_H */
