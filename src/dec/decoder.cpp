@@ -12,6 +12,7 @@
 
 Incoming_Message::Incoming_Message(msg_t algo) :
     descriptor(NULL)
+    ,bandwidth_usage(0)
 {
     decoder = get_decoder(algo);
 }
@@ -210,4 +211,13 @@ Decoder *Incoming_Message::get_decoder(msg_t algo) {
             return NULL;
     }
     return NULL;
+}
+
+//Keep track of the bandwidth usage while we're decoding the message
+void Incoming_Message::add_bandwidth(uint64_t bw){
+    bandwidth_usage += bw;
+}
+
+uint64_t Incoming_Message::get_bandwidth_usage(void){
+    return bandwidth_usage;
 }

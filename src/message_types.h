@@ -14,6 +14,7 @@ enum msg_t {
     READY,
     QUIT,
     CONFIRM,
+    BANDWIDTH,
     // Broadcast algorithms
     CLIENT_SERVER,
     TRAD,

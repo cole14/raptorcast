@@ -31,6 +31,8 @@ static const char * msg_t_to_str(msg_t type) {
             return "JOIN";
         case PEER:
             return "PEER";
+        case BANDWIDTH:
+            return "BANDWIDTH";
         case PING:
             return "PING";
         case READY:
@@ -258,8 +260,8 @@ void Broadcast_Channel::print_msgs(int indent) {
     //Print out the completed message info
     //    Peer: # Message: #
     glob_log.log(1, "%s\n", "Completed Messages:");
-    for(std::set< uint64_t >::iterator it = finished_messages.begin(); it != finished_messages.end(); it++){
-        uint64_t dec_id = *it;
+    for(std::map< uint64_t, uint64_t >::iterator it = finished_messages.begin(); it != finished_messages.end(); it++){
+        uint64_t dec_id = it->first;
         uint64_t cli_id = (dec_id & 0xFFFFFFFF00000000LL) >> 32;
         uint64_t msg_id = dec_id & 0xFFFFFFFFLL;
 
@@ -568,6 +570,10 @@ void Broadcast_Channel::accept_connections() {
                 start_times[confirm_msgid] = time_info;
                 break;
 
+            case BANDWIDTH:
+                handle_bandwidth(client_sock, &in_msg);
+                break;
+
             case CLIENT_SERVER:
             case TRAD:
             case COOP:
@@ -641,6 +647,36 @@ void Broadcast_Channel::handle_ping(int client_sock, struct message *in_msg) {
     // Send
     if (send_message(client_sock, &out_msg) != sizeof(out_msg))
         error(-1, EIO, "Trouble returning PING");
+}
+
+void Broadcast_Channel::handle_bandwidth(int client_sock, struct message *in_msg) {
+    struct message out_msg;
+    uint64_t msg_data[2];
+
+    for(std::map< uint64_t, uint64_t >::iterator it = finished_messages.begin(); it != finished_messages.end(); it++){
+        //Get the bandwidth usage and msgid
+        uint64_t msg_id = it->first & 0xFFFFFFFF;
+        uint64_t bw_usage = it->second;
+        fprintf(stdout, "  %llu %llu\n", (unsigned long long)msg_id, (unsigned long long)bw_usage);
+
+        //Construct the outgoing message
+        msg_data[0] = msg_id;
+        msg_data[1] = bw_usage;
+        construct_message(BANDWIDTH, &out_msg, msg_data, sizeof(uint64_t)*2);
+
+        // Send
+        if (send_message(client_sock, &out_msg) != sizeof(out_msg))
+            error(-1, EIO, "Trouble returning BANDWIDTH");
+    }
+
+    //Send the terminator message
+    msg_data[0] = 0xFFFFFFFFFFFFFFFFULL;
+    msg_data[1] = 0xFFFFFFFFFFFFFFFFULL;
+    construct_message(BANDWIDTH, &out_msg, msg_data, sizeof(uint64_t)*2);
+
+    // Send
+    if (send_message(client_sock, &out_msg) != sizeof(out_msg))
+        error(-1, EIO, "Trouble returning BANDWIDTH");
 }
 
 void Broadcast_Channel::handle_peer(int client_sock, struct message *in_msg) {
@@ -719,6 +755,12 @@ void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
     memcpy(msg, in_msg, sizeof(struct message));
     msg_list.push_back(std::shared_ptr<struct message>(msg));
 
+    // Keep track of the bandwidth usage after we've already finished the message.
+    if(decoder)
+        decoder->add_bandwidth(msg_list.size() * sizeof(struct message));
+    else
+        finished_messages[dec_id] += msg_list.size() * sizeof(struct message);
+
     // Forward the message on to the other peers
     if (should_forward(in_msg->type) && in_msg->ttl > 0)
         forward(msg_list);
@@ -732,7 +774,7 @@ void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
         confirm_message(in_msg);
 
         glob_log.log(2, "Erasing decoder for message %u\n", in_msg->msg_id);
-        finished_messages.insert(dec_id);
+        finished_messages[dec_id] = decoder->get_bandwidth_usage();
         decoders.erase(dec_id);
         delete decoder;
     }
@@ -928,6 +970,70 @@ void Broadcast_Channel::broadcast(msg_t algo, unsigned char *data, size_t data_l
         delete chunks;
     }
     delete msg_handler;
+}
+
+/*
+* Ask all the peers what their incoming message bandwidth for each message is
+* and print it to stdout.
+*/
+void Broadcast_Channel::print_message_bandwidth(){
+    std::map< uint64_t, uint64_t > usage_totals;
+
+    for(size_t i = 0; i < group_set.size(); i++){
+        struct client_info *peer;
+        struct message out_msg, in_msg;
+        int sock;
+
+        peer = group_set[i];
+        glob_log.log(1, "Questioning peer %s.\n", cli_to_str(peer));
+
+        // Setup the socket
+        sock = make_socket();
+
+        // Open socket
+        if (connect(sock, (struct sockaddr *) &peer->ip, sizeof(peer->ip)) < 0) {
+            glob_log.log(1, "Could not connect to peer: %s\n", strerror(errno));
+            return;
+        }
+
+        // Construct the outgoing message
+        construct_message(BANDWIDTH, &out_msg, NULL, 0);
+
+        // Send
+        if (send_message(sock, &out_msg) != sizeof(out_msg)) {
+            glob_log.log(1, "Could not send BANDWIDTH message to peer: %s\n", strerror(errno));
+            return;
+        }
+
+        while(true){
+            // Get reply
+            if (read_message(sock, &in_msg) < 0) {
+                fprintf(stdout, "Could not receive peer response: %s\n", strerror(errno));
+                return;
+            }
+            if (in_msg.type != BANDWIDTH) {
+                fprintf(stdout, "received bad peer response message type: %s\n", strerror(errno));
+                return;
+            }
+            uint64_t *msg_data = (uint64_t *)&(in_msg.data);
+
+            if(msg_data[0] == 0xFFFFFFFFFFFFFFFFULL && msg_data[1] == 0xFFFFFFFFFFFFFFFFULL)
+                break;
+
+            if(usage_totals.find(msg_data[0]) == usage_totals.end())
+                usage_totals[msg_data[0]] = 0;
+            usage_totals[msg_data[0]] += msg_data[1];
+            fprintf(stdout, "%llu %llu \n", (unsigned long long)msg_data[0], (unsigned long long)msg_data[1]);
+        }
+
+        // Close socket - if this fails, we've probably got bigger problems than
+        // a bad peer, so we just barf.
+        if (close(sock) != 0)
+            error(-1, errno, "Error closing peer socket");
+    }
+    for(std::map< uint64_t, uint64_t >::iterator it = usage_totals.begin(); it != usage_totals.end(); it++)
+        fprintf(stdout, "%llu\n", (unsigned long long)it->second);
+
 }
 
 /*

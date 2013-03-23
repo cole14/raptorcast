@@ -35,6 +35,8 @@ class Incoming_Message : public Decoder_Context {
         bool should_forward();
         size_t get_len();
         unsigned char *get_message();
+        uint64_t get_bandwidth_usage(void);
+        void add_bandwidth(uint64_t bw);
 
         // Decoder interface
         void fill_block_list(std::vector<unsigned> *dest);
@@ -53,6 +55,9 @@ class Incoming_Message : public Decoder_Context {
 
         Message_Descriptor *descriptor;
 
+        //Keep track of the bandwidth usage while we're decoding the message
+        uint64_t bandwidth_usage;
+
         Decoder *get_decoder(msg_t algo);
         Decoder *decoder;
 
@@ -70,6 +75,7 @@ class Decoder {
 
     protected:
         Decoder_Context *context;
+        uint64_t bandwidth_usage;
 };
 
 #endif /* __DECODER_H */

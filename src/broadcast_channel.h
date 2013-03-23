@@ -53,6 +53,10 @@ class Broadcast_Channel {
         // Ping somebody (-1 for everybody, otherwise by client id)
         unsigned ping (int peer_id);
 
+        // Ask all the peers what their incoming message bandwidth for each message is
+        // and print it to stdout.
+        void print_message_bandwidth();
+
         // Simulate a node going down
         bool toggle_node_down();
 
@@ -64,7 +68,7 @@ class Broadcast_Channel {
         std::vector< struct client_info * > group_set;
         // Association between message_ids and their active decoders
         std::map< uint64_t, Incoming_Message * > decoders;
-        std::set< uint64_t > finished_messages;
+        std::map< uint64_t, uint64_t > finished_messages;
         // The chunk receiver thread
         pthread_t receiver_thread;
         // The chunk receiver socket
@@ -127,6 +131,8 @@ class Broadcast_Channel {
         void handle_join(int client_sock, struct message *in_msg);
         // Respond to a ping request
         void handle_ping(int client_sock, struct message *in_msg);
+        // Respond to a bandwidth request
+        void handle_bandwidth(int client_sock, struct message *in_msg);
         // Deal with a request to add a peer to the network
         void handle_peer(int client_sock, struct message *in_msg);
         // Deal with a quit request
