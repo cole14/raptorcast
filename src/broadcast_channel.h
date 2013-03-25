@@ -137,8 +137,10 @@ class Broadcast_Channel {
         void handle_peer(int client_sock, struct message *in_msg);
         // Deal with a quit request
         void handle_quit(struct message *in_msg);
-        // Deal with a chunk of a message
-        void handle_chunk(int client_sock, struct message *in_msg);
+        // Deal with a message transmission
+        void handle_transmission(int client_sock, struct message *in_msg);
+        // Add a transmission to our decoding process
+        void decode(std::list< std::shared_ptr< struct message > > msg_list);
 
         // Confirm receipt of a message
         void confirm_message(struct message *in_msg);

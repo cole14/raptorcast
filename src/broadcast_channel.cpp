@@ -578,10 +578,7 @@ void Broadcast_Channel::accept_connections() {
             case TRAD:
             case COOP:
             case LT:
-                if (!down_mode)
-                    handle_chunk(client_sock, &in_msg);
-                else
-                    glob_log.log(2, "Ignoring message because node is down\n");
+                handle_transmission(client_sock, &in_msg);
 
                 break;
             case RAPTOR:
@@ -710,60 +707,76 @@ void Broadcast_Channel::handle_quit(struct message *in_msg) {
     return remove_peer(peer_info);
 }
 
-void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
+void Broadcast_Channel::handle_transmission (int client_sock, struct message *in_msg) {
     std::list< std::shared_ptr<struct message> > msg_list;
     struct message *msg = NULL;
-    Incoming_Message *decoder = NULL;
-    uint64_t dec_id = 0;
 
     if (in_msg->cli_id == my_info->id)
         return;  // It's just a bump of one of our own messages
 
-    // Get a decoder for this message
-    dec_id = (((uint64_t)in_msg->cli_id) << 32) | (uint64_t)in_msg->msg_id;
-    if (finished_messages.find(dec_id) != finished_messages.end()) {
-        // We can't just return, because we still need to forward messages along.
-        decoder = NULL;
+    // Copy the first packet to the list
+    msg = new struct message();
+    memcpy(msg, in_msg, sizeof(struct message));
+    msg_list.push_back(std::shared_ptr<struct message>(msg));
 
-    } else {
-        if(decoders.find(dec_id) == decoders.end())
-            decoders[dec_id] = new Incoming_Message(in_msg->type);
-        decoder = decoders[dec_id];
-    }
-
-    // Keep reading chunks and adding them until the bcast is done
-    // Note: do while because we start with a chunk already
-    do {
-        msg = new struct message();
-        memcpy(msg, in_msg, sizeof(struct message));
-        msg_list.push_back(std::shared_ptr<struct message>(msg));
+    // Read and copy the rest of the transmission
+    while (msg->chunk_id != MSG_END) {
+        if (read_message(client_sock, in_msg) < 0)
+            error(-1, errno, "Could not receive client message");
 
         glob_log.log(2, "Received chunk %d of msg %u from peer %u\n",
                 in_msg->chunk_id, in_msg->msg_id, in_msg->cli_id);
         glob_log.dump_buf(3, in_msg->data, in_msg->data_len);
 
-        if (decoder)
-            decoder->add_chunk(in_msg->data, in_msg->data_len, in_msg->chunk_id);
+        msg = new struct message();
+        memcpy(msg, in_msg, sizeof(struct message));
+        msg_list.push_back(std::shared_ptr<struct message>(msg));
+    }
 
-        // Read the next chunk
-        if (read_message(client_sock, in_msg) < 0)
-            error(-1, errno, "Could not receive client message");
-    } while (in_msg->chunk_id != MSG_END);
+    if (!down_mode) {
+        decode(msg_list);
 
-    // Add the terminator message to the list (but not the decoder)
-    msg = new struct message();
-    memcpy(msg, in_msg, sizeof(struct message));
-    msg_list.push_back(std::shared_ptr<struct message>(msg));
+        // Forward the message on to the other peers
+        if (should_forward(msg->type) && msg->ttl > 0)
+            forward(msg_list);
 
-    // Keep track of the bandwidth usage after we've already finished the message.
-    if(decoder)
+    } else {
+        glob_log.log(2, "Ignoring message because node is down\n");
+    }
+}
+
+void Broadcast_Channel::decode (std::list< std::shared_ptr<struct message> > msg_list) {
+    struct message *msg = NULL;
+    Incoming_Message *decoder = NULL;
+    uint64_t dec_id = 0;
+
+    // Get a decoder for this message (or null if finished)
+    msg = msg_list.front().get();
+    dec_id = (((uint64_t)msg->cli_id) << 32) | (uint64_t)msg->msg_id;
+    if (finished_messages.find(dec_id) != finished_messages.end()) {
+        decoder = NULL;
+
+    } else {
+        if(decoders.find(dec_id) == decoders.end())
+            decoders[dec_id] = new Incoming_Message(msg->type);
+        decoder = decoders[dec_id];
+    }
+
+    if(decoder) {
+        // Iterate through the messages and add them to the decoder
+        std::list< std::shared_ptr< struct message > >::iterator it;
+        for (it = msg_list.begin(); it != msg_list.end(); it++) {
+            msg = (*it).get();
+            decoder->add_chunk(msg->data, msg->data_len, msg->chunk_id);
+        }
+
+        // Keep track of bandwidth usage
         decoder->add_bandwidth(msg_list.size() * sizeof(struct message));
-    else
-        finished_messages[dec_id] += msg_list.size() * sizeof(struct message);
 
-    // Forward the message on to the other peers
-    if (should_forward(in_msg->type) && in_msg->ttl > 0)
-        forward(msg_list);
+    } else {
+        // Track bandwidth, even after the message is done
+        finished_messages[dec_id] += msg_list.size() * sizeof(struct message);
+    }
 
     // Print the message and clean up
     if(decoder && decoder->is_ready()){
@@ -771,9 +784,9 @@ void Broadcast_Channel::handle_chunk(int client_sock, struct message *in_msg) {
         listener->receive(decoder->get_message(), decoder->get_len());
 
         // Let the sender know we got it
-        confirm_message(in_msg);
+        confirm_message(msg);
 
-        glob_log.log(2, "Erasing decoder for message %u\n", in_msg->msg_id);
+        glob_log.log(2, "Erasing decoder for message %u\n", msg->msg_id);
         finished_messages[dec_id] = decoder->get_bandwidth_usage();
         decoders.erase(dec_id);
         delete decoder;
@@ -819,14 +832,14 @@ void Broadcast_Channel::forward(std::list< std::shared_ptr< struct message > > m
         peer =  group_set[i];
 
         //Don't broadcast to yourself or the origin
-        if(peer->id == my_info->id || peer->id == msg_list.front()->cli_id) continue;
+        if(peer->id == my_info->id || peer->id == msg_list.front()->cli_id)
+            continue;
 
         // Setup the socket
         sock = make_socket();
 
         // Open socket
-        if (connect(sock, (struct sockaddr *) &peer->ip,
-                    sizeof(peer->ip)) < 0)
+        if (connect(sock, (struct sockaddr *) &peer->ip, sizeof(peer->ip)) < 0)
             error(-1, errno, "Could not connect to peer %s", cli_to_str(peer));
 
         pthread_t forward_thread;
@@ -845,8 +858,8 @@ void *Broadcast_Channel::do_forward(void *arg){
     struct message *out_msg = NULL;
 
     // Send all messages
-    for (std::list< std::shared_ptr< struct message > >::iterator it = fe->msg_list.begin();
-            it != fe->msg_list.end(); it++) {
+    std::list< std::shared_ptr< struct message > >::iterator it;
+    for (it = fe->msg_list.begin(); it != fe->msg_list.end(); it++) {
         out_msg = (*it).get();
         if (out_msg->data_len != 0) {
             glob_log.log(2, "Forwarding chunk %d of msg %u from peer %u to peer %u\n",
