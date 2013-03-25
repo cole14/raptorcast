@@ -1,6 +1,13 @@
-.gitignore
+# Executables
 *.swp
 a.out
 *.o
+
+# Directories
 bin/
+reading/
+
+# Etc.
 *time_msg_size.txt
+*tags
+valgrind.out
